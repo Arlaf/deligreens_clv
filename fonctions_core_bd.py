@@ -11,9 +11,11 @@ import numpy  as np
 import os
 
 # Pour l'exécution en local
-import sys
-sys.path.append('/home/arnaud/Documents')
-import Linfo_core
+# =============================================================================
+# import sys
+# sys.path.append('/home/arnaud/Documents')
+# import Linfo_core
+# =============================================================================
 
 
 # Convertit des datetime sans tz à la tz Europe
