@@ -11,11 +11,9 @@ import numpy  as np
 import os
 
 # Pour l'exécution en local
-# =============================================================================
-# import sys
-# sys.path.append('/home/arnaud/Documents')
-# import Linfo_core
-# =============================================================================
+#import sys
+#sys.path.append('/home/arnaud/Documents')
+#import Linfo_core
 
 
 # Convertit des datetime sans tz à la tz Europe
@@ -30,10 +28,10 @@ def convert_tz(dates):
 # Execute une requête SQL sur la BD Core et renvoie un dataframe
 def extract_core(req):
     credentials = {
-        'username': os.environ['dbuser'],
-        'password': os.environ['dbpass'],
-        'host': os.environ['dbhost'],
-        'database': os.environ['dbname']}
+        'username': os.environ.get('dbuser'),
+        'password': os.environ.get('dbpass'),
+        'host': os.environ.get('dbhost'),
+        'database': os.environ.get('dbname')}
     
     # URL de création de l'engine
     connect_url = sqlalchemy.engine.url.URL(
