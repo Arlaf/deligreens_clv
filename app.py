@@ -4,10 +4,11 @@ Created on Thu Jul 19 11:44:30 2018
 
 @author: arnaud
 """
-import gunicorn
-from fonctions_core_bd import *
+#import gunicorn
+import fonctions_core_bd as fcore
 import pandas as pd
 #import numpy as np
+#import sqlalchemy
 import datetime
 import os
 import dash
@@ -38,7 +39,7 @@ req = """SELECT  o.order_number,
   ORDER BY  order_created_at"""
 
 # Extraction des commandes de Core
-commandes1 = extract_core(req)
+commandes1 = fcore.extract_core(req)
 
 # Calcul du gross_revenue
 commandes1['gross_revenue'] = commandes1.gross_sale/100 + commandes1.shipping_ht/100
