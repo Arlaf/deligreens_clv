@@ -4,7 +4,7 @@ Created on Thu Jul 19 11:44:30 2018
 
 @author: arnaud
 """
-
+import gunicorn
 import fonctions_core_bd as fcore
 import pandas as pd
 #import numpy as np
