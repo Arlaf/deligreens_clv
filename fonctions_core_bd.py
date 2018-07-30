@@ -11,6 +11,7 @@ import numpy  as np
 import os
 
 # Pour l'exécution en local
+#if os.environ.get('PWD') != '/app':
 #import sys
 #sys.path.append('/home/arnaud/Documents')
 #import Linfo_core
