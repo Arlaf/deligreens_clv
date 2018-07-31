@@ -4,7 +4,7 @@
 import fonctions_core_bd as fcore
 import fonctions_dates as fdate
 import pandas as pd
-#import numpy as np
+import numpy as np
 #import sqlalchemy
 import datetime
 import os
@@ -161,7 +161,12 @@ def allcli_construct():
     allcli['ddv'] = (allcli['derniere'] - allcli['premiere']).dt.days
     allcli['pas_vu_depuis'] = (ajd - allcli['derniere']).dt.days
     
-    return allcli.pas_vu_depuis.mean()
+    # Le client est-il encore actif ?
+    seuil_jour1, seuil_jour2, seuil_jour3 = [30, 50, 70]
+    seuil_com1, seuil_com2 = [1, 5]
+    allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour1 if ligne['orders_count'] <= seuil_com1 else ligne['pas_vu_depuis'] < seuil_jour2 if ligne['orders_count'] <= seuil_com2 else ligne['pas_vu_depuis'] < seuil_jour3 for i, ligne in allcli.iterrows()]
+    
+    return allcli
 
 ###############################################################################
 ################################# LAYOUT/VIEW #################################
@@ -178,28 +183,44 @@ app.layout = html.Div([
         
         # Header
         html.Div([
-            # Barre Latérale
+            # Colonne Barre Latérale
             html.Div([
-                html.H4(' '), # A MODIFIER
                 html.H4('Onglet 1'),
                 html.H4('Onglet 2')
             ], className = 'two columns'),
-            # Formulaire
+            # Colonne Formulaire
             html.Div([
                 html.H1('Dashboard CLV'),
-                html.Label('Sur combien de mois calculer la CLV :'),
-                dcc.Input(id = 'input_X', type = 'number', value = '18'),
-                html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :'),
-                dcc.DatePickerRange(
-                    id='date_range',
-                    min_date_allowed = datetime.date(2015, 1, 1),
-                    max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
-#                   # Par défaut : du 1er mars 2017 à il y a 4 mois
-                    start_date = datetime.date(2017, 3, 1),
-                    end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
-                ),
-                html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
-            ], className = 'ten columns')
+                # Ligne des labels
+                html.Div([
+                    html.Div([
+                        html.Label('Sur combien de mois calculer la CLV :')
+                    ], className = 'six columns'),
+                    html.Div([
+                        html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
+                    ], className = 'six columns'),
+                ], className = 'row'),
+                # Ligne des inputs
+                html.Div([
+                        html.Div([
+                            dcc.Input(id = 'input_X', type = 'number', value = '18')
+                        ], className = 'six columns'),
+                        html.Div([
+                            dcc.DatePickerRange(
+                                id='date_range',
+                                min_date_allowed = datetime.date(2015, 1, 1),
+                                max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
+                                # Par défaut : du 1er mars 2017 à il y a 4 mois
+                                start_date = datetime.date(2017, 3, 1),
+                                end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
+                            )
+                        ], className = 'six columns'),
+                ], className = 'row'),
+                # Ligne du bouton
+                html.Div([
+                    html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
+                ], className = 'row')
+            ], className = ' ten columns')
         ], className = 'row'),
         
         # Body
@@ -207,20 +228,12 @@ app.layout = html.Div([
             html.Div([
                 # Méthode 1
                 html.Div([
-                dcc.Slider(id = 'slider',
-                           min=6,
-                           max=36,
-                           step=6,
-                           value=18)
+                    html.H2('Méthode n°1')
                 ], className = 'six columns'),
                 # Méthode 2
                 html.Div([
-                dcc.Slider(id = 'slider2',
-                           min=6,
-                           max=36,
-                           step=6,
-                           value=18),
-                html.Div(id = 'out')
+                    html.H2('Méthode n°2'),
+                    html.Div(id = 'out')
                 ], className = 'six columns'),
             ], className = 'row')
         ])
@@ -240,7 +253,7 @@ app.css.append_css({
         [State('input_X', 'value')])
 def outoutoutotut(n_clicks,value):
     if n_clicks > 0:
-        res = [html.H1(children = 'Valeur de X = ' + str(value)),
+        res = [html.H1(children = f'''Vous avez choisi {value} mois, cool.'''),
                html.H2(children = 'Moyenne de allcli = ' + str(allcli_construct()))]
         return res
     else:
