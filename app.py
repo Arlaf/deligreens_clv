@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jul 19 11:44:30 2018
 
-@author: arnaud
-"""
 #import gunicorn
 import fonctions_core_bd as fcore
+import fonctions_dates as fdate
 import pandas as pd
 #import numpy as np
 #import sqlalchemy
@@ -17,6 +14,10 @@ import dash_core_components as dcc
 import dash_html_components as html
 #import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
+
+###############################################################################
+##################################### DATA ####################################
+###############################################################################
     
 # Liste des équipiers
 email_equipier = ['dumontet.thibaut@gmail.com', 'dumontet.julie@gmail.com', 'laura.h.jalbert@gmail.com', 'rehmvincent@gmail.com', 'a.mechkar@gmail.com', 'helena.luber@gmail.com', 'martin.plancquaert@gmail.com', 'badieresoscar@gmail.com', 'steffina.tagoreraj@gmail.com', 'perono.jeremy@gmail.com', 'roger.virgil@gmail.com', 'boutiermorgane@gmail.com', 'idabmat@gmail.com', 'nadinelhubert@gmail.com', 'faure.remi@yahoo.fr', 'maxime.cisilin@gmail.com', 'voto.arthur@gmail.com', 'pedro7569@gmail.com']
@@ -162,30 +163,80 @@ def allcli_construct():
     
     return allcli.pas_vu_depuis.mean()
 
-########### APP ###############
+###############################################################################
+################################# LAYOUT/VIEW #################################
+###############################################################################
+
+# Déclaration de l'application    
 app = dash.Dash('auth')
 auth = dash_auth.BasicAuth(app,
-#                           [['aa', 'bb']])
                            [[os.environ['appuser'], os.environ['apppass']]])
 server = app.server
 
+# Layout
 app.layout = html.Div([
-        html.H1(children = 'Valeur de X :'),
-        dcc.Input(id = 'input_X', type = 'number'),
-#        dcc.Slider(id = 'slider',
-#                   min=6,
-#                   max=36,
-#                   step=6,
-#                   marks={i: '{} Mois'.format(i) for i in range(6,37,6)},
-#                   value=18),
-        html.Button(id = 'button_login', n_clicks = 0, children = 'Login'),
-#        html.Div(id = 'div1', children=),
-        html.Div(id = 'out')
+        
+        # Header
+        html.Div([
+            # Barre Latérale
+            html.Div([
+                html.H4(' '), # A MODIFIER
+                html.H4('Onglet 1'),
+                html.H4('Onglet 2')
+            ], className = 'two columns'),
+            # Formulaire
+            html.Div([
+                html.H1('Dashboard CLV'),
+                html.Label('Sur combien de mois calculer la CLV :'),
+                dcc.Input(id = 'input_X', type = 'number', value = '18'),
+                html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :'),
+                dcc.DatePickerRange(
+                    id='date_range',
+                    min_date_allowed = datetime.date(2015, 1, 1),
+                    max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
+#                   # Par défaut : du 1er mars 2017 à il y a 4 mois
+                    start_date = datetime.date(2017, 3, 1),
+                    end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
+                ),
+                html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
+            ], className = 'ten columns')
+        ], className = 'row'),
+        
+        # Body
+        html.Div([
+            html.Div([
+                # Méthode 1
+                html.Div([
+                dcc.Slider(id = 'slider',
+                           min=6,
+                           max=36,
+                           step=6,
+                           value=18)
+                ], className = 'six columns'),
+                # Méthode 2
+                html.Div([
+                dcc.Slider(id = 'slider2',
+                           min=6,
+                           max=36,
+                           step=6,
+                           value=18),
+                html.Div(id = 'out')
+                ], className = 'six columns'),
+            ], className = 'row')
         ])
+])
+
+app.css.append_css({
+    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+})    
+
+###############################################################################
+################################## CONTROLLER #################################
+###############################################################################
 
 @app.callback(
         Output('out','children'),
-        [Input('button_login', 'n_clicks')],
+        [Input('button_valider', 'n_clicks')],
         [State('input_X', 'value')])
 def outoutoutotut(n_clicks,value):
     if n_clicks > 0:
