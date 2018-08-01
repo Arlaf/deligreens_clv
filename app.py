@@ -158,8 +158,11 @@ def agregation_par_client(group, Nmois):
     return pd.Series([c1,c2,c3,c4,c5,c6,c7,c8], index = colnames)
 
 # Création du dataframe des clients
-def allcli_construct(X):    
-    allcli = commandes.groupby('client_id').apply(agregation_par_client, Nmois = X).reset_index()
+def allcli_construct(X, debut, fin):    
+    print('Construction de Allcli')
+    df = commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
+    
+    allcli = df.groupby('client_id').apply(agregation_par_client, Nmois = X).reset_index()
     
     # Calcul des durées
     allcli['age'] = (ajd - allcli['premiere']).dt.days
@@ -218,6 +221,7 @@ app.layout = html.Div([
                         html.Div([
                             dcc.DatePickerRange(
                                 id='date_range',
+                                display_format = 'DD/MM/YY',
                                 min_date_allowed = datetime.date(2015, 1, 1),
                                 max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
                                 # Par défaut : du 1er mars 2017 à il y a 4 mois
@@ -260,11 +264,18 @@ app.css.append_css({
 @app.callback(
         Output('out','children'),
         [Input('button_valider', 'n_clicks')],
-        [State('input_X', 'value')])
-def outoutoutotut(n_clicks,value):
+        [State('input_X', 'value'),
+         State('date_range','start_date'),
+         State('date_range','end_date')])
+def outoutoutotut(n_clicks, value, start_date, end_date):
+    value = int(value)
+    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    allcli = allcli_construct(value, start_date, end_date)
+    
     if n_clicks > 0:
         res = [html.H1(children = f'''Vous avez choisi {value} mois, cool.'''),
-               html.H2(children = 'Moyenne de allcli = ' + str(allcli_construct()))]
+               html.H2(children = 'Nombre de clients = ' + str(allcli.shape[0]))]
         return res
     else:
         return None
