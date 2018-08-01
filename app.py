@@ -133,28 +133,33 @@ def orders_counting(group):
     return group
 commandes = commandes.groupby('client_id').apply(orders_counting)
 
+# Age en jour lors de la commandes
+commandes['age'] = (commandes['order_created_at'] - commandes['first_order_date']).dt.days
+
 # Date d'aujourd'hui
 ajd = datetime.datetime.today().date()
 
-# Nombre de mois étudiés (doit être pair)
-X = 18
+# Calcule les agrégats de toutes les commandes de chaque client
+def agregation_par_client(group, Nmois):
+    c1 = group['order_created_at'].min()
+    c2 = group['order_created_at'].max()
+    c3 = group['order_number'].count()
+    c4 = group['gross_revenue'].mean()
+    c5 = group['gross_revenue'].sum()
+    # Valeur sur les X premiers mois
+    c6 = group.loc[group['age'] <= Nmois*30, 'gross_revenue'].sum()
+    # Valeur sur les X/2 premiers et derniers mois
+    age_max = group['age'].max()
+    c7 = group.loc[(group['age'] <= Nmois/2*30) | (group['age'] >= age_max - Nmois/2*30), 'gross_revenue'].sum()
+    # Valeur sur les X premiers mois
+    c8 = group.loc[group['age'] >= age_max - Nmois*30, 'gross_revenue'].sum()
+    
+    colnames = ['premiere', 'derniere', 'orders_count', 'panier_moyen', 'value_totale', 'valueXpremiers', 'valueXderniers', 'valueXmoitie']
+    return pd.Series([c1,c2,c3,c4,c5,c6,c7,c8], index = colnames)
 
 # Création du dataframe des clients
-def allcli_construct():
-    # Dictionnaire d'aggrégation
-    dagg = {'order_created_at' : ['min', 'max', 'count'],
-            'gross_revenue' : ['mean', 'sum']}
-    
-    # Aggrégation : une ligne par client
-    allcli = commandes.groupby('client_id').agg(dagg).reset_index()
-    # Applatissement des noms de colonnes
-    allcli.columns = ['_'.join(col).rstrip('_') for col in allcli.columns.values]
-    # On renomme les colonnes
-    allcli = allcli.rename({'order_created_at_min' : 'premiere',
-                           'order_created_at_max' : 'derniere',
-                           'order_created_at_count' : 'orders_count',
-                           'gross_revenue_mean' : 'panier_moyen',
-                           'gross_revenue_sum' : 'value'}, axis = 'columns')
+def allcli_construct(X):    
+    allcli = commandes.groupby('client_id').apply(agregation_par_client, Nmois = X).reset_index()
     
     # Calcul des durées
     allcli['age'] = (ajd - allcli['premiere']).dt.days
@@ -162,9 +167,14 @@ def allcli_construct():
     allcli['pas_vu_depuis'] = (ajd - allcli['derniere']).dt.days
     
     # Le client est-il encore actif ?
-    seuil_jour1, seuil_jour2, seuil_jour3 = [30, 50, 70]
+        # 3 catégories de clients : 1 seule commande passées ; entre 2 et 5 ; 6 ou plus
     seuil_com1, seuil_com2 = [1, 5]
+        # Nombres de jours nécessaires pour que les clients de chaque catégorie soient considérés comme parti
+    seuil_jour1, seuil_jour2, seuil_jour3 = [30, 50, 70]
     allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour1 if ligne['orders_count'] <= seuil_com1 else ligne['pas_vu_depuis'] < seuil_jour2 if ligne['orders_count'] <= seuil_com2 else ligne['pas_vu_depuis'] < seuil_jour3 for i, ligne in allcli.iterrows()]
+    
+    # Le client était-il encore actif X mois après sa première commandes ?
+    allcli['actifXmois'] = [None if ligne['actif'] & ligne['ddv'] < 30*X else ~(~ligne('actif') & ligne('ddv') < 30*X)  for i, ligne in allcli.iterrows()] 
     
     return allcli
 
