@@ -17,9 +17,15 @@ from plotly import tools
 import plotly.plotly as py
 import plotly.graph_objs as go
 
+
+
 ###############################################################################
 ###################### VARIABLES GLOBALES ET IMMUABLES ########################
 ###############################################################################
+
+# Pour avoir les dates en français
+import locale
+locale.setlocale(2,'')
     
 # Liste des équipiers
 email_equipier = ['dumontet.thibaut@gmail.com', 'dumontet.julie@gmail.com', 'laura.h.jalbert@gmail.com', 'rehmvincent@gmail.com', 'a.mechkar@gmail.com', 'helena.luber@gmail.com', 'martin.plancquaert@gmail.com', 'badieresoscar@gmail.com', 'steffina.tagoreraj@gmail.com', 'perono.jeremy@gmail.com', 'roger.virgil@gmail.com', 'boutiermorgane@gmail.com', 'idabmat@gmail.com', 'nadinelhubert@gmail.com', 'faure.remi@yahoo.fr', 'maxime.cisilin@gmail.com', 'voto.arthur@gmail.com', 'pedro7569@gmail.com']
@@ -257,7 +263,7 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
     split_cohortes = [split_cohortes.get_group(x)[['age_mois','gross_revenue']] for x in split_cohortes.groups]
     
     # Noms des cohortes
-    titres = [x.strftime('%B %y') + f''' ({int(df_cohortes.loc[df_cohortes['cohorte'] == x, 'nb_cli'].max())} clients)''' for x in df_cohortes['cohorte'].unique()]
+    titres = [x.strftime('%B %y').capitalize() + f''' ({int(df_cohortes.loc[df_cohortes['cohorte'] == x, 'nb_cli'].max())} clients)''' for x in df_cohortes['cohorte'].unique()]
     
     # Création du graphique
     ncols = 2 # Nombre de colonnes du layout
