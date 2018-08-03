@@ -5,18 +5,20 @@ import fonctions_core_bd as fcore
 import fonctions_dates as fdate
 import pandas as pd
 import numpy as np
-#import sqlalchemy
 import datetime
+import math
 import os
 import dash
 import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
-#import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
+from plotly import tools
+import plotly.plotly as py
+import plotly.graph_objs as go
 
 ###############################################################################
-##################################### DATA ####################################
+###################### VARIABLES GLOBALES ET IMMUABLES ########################
 ###############################################################################
     
 # Liste des équipiers
@@ -89,7 +91,7 @@ for i in range(8556,8620+1):
 del [commandes1, commandes2, commandes3, email_id, req]
 
 # On n'a pas besoin de l'heure, on va juste garder les dates
-commandes['order_created_at'] = commandes.loc[:,'order_created_at'].dt.date
+commandes['order_created_at'] = commandes['order_created_at'].dt.date
 
 # On retire les commandes des équipiers
 commandes = commandes.loc[~commandes.email.isin(email_equipier)]
@@ -122,6 +124,10 @@ def first_order(group):
     return group
 commandes = commandes.groupby('client_id').apply(first_order)
 
+    
+# Cohorte du client
+commandes['cohorte'] = commandes['first_order_date'].apply(lambda x: x.replace(day=1))
+
 # Rang de la commande
 commandes = commandes.sort_values(['client_id','order_created_at'])
 commandes['nieme'] = commandes.groupby('client_id').cumcount()+1
@@ -139,6 +145,14 @@ commandes['age'] = (commandes['order_created_at'] - commandes['first_order_date'
 # Date d'aujourd'hui
 ajd = datetime.datetime.today().date()
 
+###############################################################################
+###################### MANIPULATION DYNAMIQUE DE DATA #########################
+###############################################################################
+
+# Filtre des commandes
+def filtre_commandes(debut, fin):
+    return  commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
+
 # Calcule les agrégats de toutes les commandes de chaque client
 def agregation_par_client(group, Nmois):
     c1 = group['order_created_at'].min()
@@ -154,15 +168,16 @@ def agregation_par_client(group, Nmois):
     # Valeur sur les X premiers mois
     c8 = group.loc[group['age'] >= age_max - Nmois*30, 'gross_revenue'].sum()
     
-    colnames = ['premiere', 'derniere', 'orders_count', 'panier_moyen', 'value_totale', 'valueXpremiers', 'valueXderniers', 'valueXmoitie']
+    colnames = ['premiere', 'derniere', 'orders_count', 'panier_moyen', 'value_totale', 'valueXpremiers', 'valueXmoitie', 'valueXderniers']
     return pd.Series([c1,c2,c3,c4,c5,c6,c7,c8], index = colnames)
 
 # Création du dataframe des clients
-def allcli_construct(X, debut, fin):    
-    print('Construction de Allcli')
-    df = commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
-    
-    allcli = df.groupby('client_id').apply(agregation_par_client, Nmois = X).reset_index()
+def allcli_construct(Nmois, debut, fin):
+    # Filtre des commandes
+    df_commandes = filtre_commandes(debut, fin)
+       
+    # Agrégation
+    allcli = df_commandes.groupby('client_id').apply(agregation_par_client, Nmois = Nmois).reset_index()
     
     # Calcul des durées
     allcli['age'] = (ajd - allcli['premiere']).dt.days
@@ -176,14 +191,139 @@ def allcli_construct(X, debut, fin):
     seuil_jour1, seuil_jour2, seuil_jour3 = [30, 50, 70]
     allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour1 if ligne['orders_count'] <= seuil_com1 else ligne['pas_vu_depuis'] < seuil_jour2 if ligne['orders_count'] <= seuil_com2 else ligne['pas_vu_depuis'] < seuil_jour3 for i, ligne in allcli.iterrows()]
     
-    # Le client était-il encore actif X mois après sa première commandes ?
-    allcli['actifXmois'] = [None if ligne['actif'] & ligne['ddv'] < 30*X else ~(~ligne('actif') & ligne('ddv') < 30*X)  for i, ligne in allcli.iterrows()] 
-    
     return allcli
 
+# Fonction d'agregation des clients selon leur nombre de commandes
+def agregation_methode_geometrique(group, N, Nmois):
+    c1 = len(group)/N
+    c2 = group['value_totale'].mean()
+    c3 = group['valueXpremiers'].mean()
+    c4 = group['valueXmoitie'].mean()
+    c5 = group['valueXderniers'].mean()
+    colnames = ['Probabilité', 'Value Totale', 'Value ' + str(Nmois) + ' premiers mois', 'Value ' + str(Nmois//2) + ' premiers '+ str(Nmois//2) + ' derniers mois', 'Value ' + str(Nmois) + ' derniers mois']
+    return pd.Series([c1,c2,c3,c4,c5], index = colnames)
+
+# Génère le tableau de la méthode 1
+def methode_geometrique_tableau(allcli_json, Nmois):
+    allcli = pd.read_json(allcli_json, orient = 'split')
+    # Reformatage des dates
+    allcli['premiere'] = pd.to_datetime(allcli['premiere'])
+    allcli['derniere'] = pd.to_datetime(allcli['derniere'])
+    
+    # Regrouper les orders_count en classes
+    bins = [1, 2, 3, 4, 5, 6, 9, 20] + [np.inf]
+    labels = ['1','2','3','4','5','6-8','9-19','20+']
+    allcli['classe'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
+    
+    # On ne garde que les clients qui ne sont plus actifs ou qui ont atteint la dernière classe de nombre de commandes
+    allcli = allcli.loc[~(allcli['actif']) | (allcli['classe'] == labels[len(labels)-1]),:]
+    
+    return allcli.groupby('classe').apply(agregation_methode_geometrique, N = len(allcli), Nmois = Nmois).reset_index()
+
+# Fonction d'agregation des cohortes
+def agregation_cohortes(group):
+    c1 = int(group['client_id'].nunique())
+    c2 = int(group['order_number'].count())
+    c3 = group['gross_revenue'].sum()
+    colnames = ['nb_cli','nb_com','gross_revenue']
+    return pd.Series([c1,c2,c3], index = colnames)
+
+# Regroupe les clients par cohorte
+def df_cohortes_construct(debut, fin, min_cli):
+    df = filtre_commandes(debut, fin)
+    # Age aujourd'hui en mois arrondi à l'inférieur (on ne compte que les mois complets)
+    df['age_actuel_mois'] = (ajd - df['first_order_date']).dt.days//30
+    # on enlève les commandes du mois en cours pour chaque client (si un client est là depuis 1,2 mois on se limite à 1 mois de données)
+    df = df.loc[df['age']/30 <= df['age_actuel_mois'],:]
+    # Age du client en mois au moment de sa commande
+    df['age_mois'] = (df['order_created_at'] - df['first_order_date']).dt.days//30
+    
+    # Agrégation
+    df_cohortes = df.groupby(['cohorte', 'age_mois']).apply(agregation_cohortes).reset_index()
+    
+    # On retire les cohortes qui ne contiennent pas assez de clients
+    df_cohortes = df_cohortes.groupby('cohorte').filter(lambda group: group['nb_cli'].max() >= min_cli)
+    
+    return df_cohortes 
+
+# Création du graph des cohortes
+def graph_cohortes_construct(df_cohortes_json, Nmois):
+    df_cohortes = pd.read_json(df_cohortes_json, orient = 'split')
+    # Reformatage des dates
+    df_cohortes['cohorte'] = pd.to_datetime(df_cohortes['cohorte']).dt.date
+    
+    # Séparation des cohortes
+    split_cohortes = df_cohortes.groupby('cohorte')
+    split_cohortes = [split_cohortes.get_group(x)[['age_mois','gross_revenue']] for x in split_cohortes.groups]
+    
+    # Noms des cohortes
+    titres = [x.strftime('%B %y') + f''' ({int(df_cohortes.loc[df_cohortes['cohorte'] == x, 'nb_cli'].max())} clients)''' for x in df_cohortes['cohorte'].unique()]
+    
+    # Création du graphique
+    ncols = 2 # Nombre de colonnes du layout
+        # Jusqu'à combien de mois va-t-on en X : max entre Nmois et l'age de la plus vieille cohorte
+    max_mois = max(df_cohortes['age_mois'].max(), Nmois)
+    figure = tools.make_subplots(rows = int(math.ceil(len(titres)/ncols)),
+                                 cols = ncols,
+                                 subplot_titles = titres,
+                                 shared_xaxes = True)
+    # Indices pour la position des sous-graph
+    i = 1
+    j = 1
+    # Pour chaque cohorte
+    for c in split_cohortes:
+        # Calcul du modèle
+        coef = np.polyfit(c['age_mois'], np.log(c['gross_revenue']), 1)
+
+        # Courbe théorique
+        trace_theo = go.Scatter(x = np.arange(max_mois+1),
+                               y = np.exp(coef[0]*np.arange(max_mois+1)+coef[1]),
+                               mode = 'lines',
+                               marker = dict(color = 'rgb(255, 0, 0)'))
+        figure.append_trace(trace_theo, i, j)
+        
+        # Courbe empirique
+        trace_emp = go.Scatter(x = list(c['age_mois']),
+                           y = list(c['gross_revenue']),
+                           mode = 'markers',
+                           marker = dict(color = 'rgb(0, 0, 0)'))
+        figure.append_trace(trace_emp, i, j)
+        
+        if j == ncols:
+            j = 1
+            i = i+1
+        else:
+            j = j+1
+    
+    figure['layout'].update(title = 'Evolution des dépenses des cohortes',
+                            showlegend = False,
+                            height = 750)
+    # Ajout d'une ligne verticale
+#    figure['layout']['shapes'] = [{'type' : 'line',
+#                                       'x0' : Nmois,
+#                                       'x1' : Nmois,
+#                                       'y0' : 0,
+#                                       'y1' : 1000000,
+#                                       'yref' : 'y1',
+#                                       'line' : {'dash' : 'dot',
+#                                                 'color' : 'rgb(0,0,0)'}}]
+    return figure
+    
 ###############################################################################
 ################################# LAYOUT/VIEW #################################
 ###############################################################################
+
+def generate_table(dataframe, max_rows=20):
+    #Given dataframe, return template generated using Dash components
+    return html.Table(
+        # Header
+        [html.Tr([html.Th(col) for col in dataframe.columns])] +
+
+        # Body
+        [html.Tr([
+            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+        ]) for i in range(min(len(dataframe), max_rows))]
+    )
 
 # Déclaration de l'application    
 app = dash.Dash('auth')
@@ -194,63 +334,86 @@ server = app.server
 # Layout
 app.layout = html.Div([
         
-        # Header
+    # Header
+    html.Div([
+        # Colonne Barre Latérale
         html.Div([
-            # Colonne Barre Latérale
+            html.H4('Onglet 1'),
+            html.H4('Onglet 2')
+        ], className = 'two columns'),
+        # Colonne Formulaire
+        html.Div([
+            html.H1('Dashboard CLV'),
+            # Ligne des labels
             html.Div([
-                html.H4('Onglet 1'),
-                html.H4('Onglet 2')
-            ], className = 'two columns'),
-            # Colonne Formulaire
-            html.Div([
-                html.H1('Dashboard CLV'),
-                # Ligne des labels
                 html.Div([
+                    html.Label('Sur combien de mois calculer la CLV :')
+                ], className = 'six columns'),
+                html.Div([
+                    html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
+                ], className = 'six columns'),
+            ], className = 'row'),
+            # Ligne des inputs
+            html.Div([
                     html.Div([
-                        html.Label('Sur combien de mois calculer la CLV :')
+                        dcc.Input(id = 'input_Nmois', type = 'number', value = '18')
                     ], className = 'six columns'),
                     html.Div([
-                        html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
+                        dcc.DatePickerRange(
+                            id='date_range',
+                            display_format = 'DD/MM/YY',
+                            min_date_allowed = datetime.date(2015, 1, 1),
+                            max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
+                            # Par défaut : du 1er mars 2017 à il y a 4 mois
+                            start_date = datetime.date(2017, 3, 1),
+                            end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
+                        )
                     ], className = 'six columns'),
-                ], className = 'row'),
-                # Ligne des inputs
-                html.Div([
-                        html.Div([
-                            dcc.Input(id = 'input_X', type = 'number', value = '18')
-                        ], className = 'six columns'),
-                        html.Div([
-                            dcc.DatePickerRange(
-                                id='date_range',
-                                display_format = 'DD/MM/YY',
-                                min_date_allowed = datetime.date(2015, 1, 1),
-                                max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
-                                # Par défaut : du 1er mars 2017 à il y a 4 mois
-                                start_date = datetime.date(2017, 3, 1),
-                                end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
-                            )
-                        ], className = 'six columns'),
-                ], className = 'row'),
-                # Ligne du bouton
-                html.Div([
-                    html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
-                ], className = 'row')
-            ], className = ' ten columns')
-        ], className = 'row'),
-        
-        # Body
-        html.Div([
+            ], className = 'row'),
+            # Ligne du bouton
             html.Div([
-                # Méthode 1
-                html.Div([
-                    html.H2('Méthode n°1')
-                ], className = 'six columns'),
-                # Méthode 2
-                html.Div([
-                    html.H2('Méthode n°2'),
-                    html.Div(id = 'out')
-                ], className = 'six columns'),
+                html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
             ], className = 'row')
-        ])
+        ], className = ' ten columns')
+    ], className = 'row'),
+    
+    # Résultat des études
+    html.Div([
+        # Colonne Méthode 1
+        html.Div([
+            html.H2('Méthode n°1'),
+            html.Div(id = 'tableau_groupes_value', className = 'row'),
+            html.Div(id = 'graph_poids_des_groupes', className = 'row')
+        ], className = 'five columns'),
+        # Colonne Méthode 2
+        html.Div([
+            html.H2('Méthode n°2'),
+            html.Div([
+                dcc.Graph(id = 'graph_cohortes')
+            ], className = 'row'),
+            html.Div(id = 'tableau_cohortes', className = 'row'),
+        ], className = 'seven columns'),
+    ], className = 'row'),
+    
+    # Détails des études
+    html.Div([
+        # Colonne méthode 1
+        html.Div([
+            html.H4('Détails Méthode n°1')
+        ], className = 'six columns'),
+        # Colonne méthode 2
+        html.Div([
+            html.H4('Détails Méthode n°2'),
+            html.P('Ne conserver que les cohortes contenant au minimum'),
+            dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
+            html.P('clients.')
+        ], className = 'six columns'),
+    ], className = 'row'),
+    
+    # Divs invisibles qui stockera les données intermédiaires
+    html.Div(id = 'stock_allcli', style = {'display': 'none'}),
+    html.Div(id = 'stock_cohortes', style = {'display': 'none'})
+    
 ])
 
 app.css.append_css({
@@ -261,24 +424,64 @@ app.css.append_css({
 ################################## CONTROLLER #################################
 ###############################################################################
 
+# Construction du df allcli
 @app.callback(
-        Output('out','children'),
-        [Input('button_valider', 'n_clicks')],
-        [State('input_X', 'value'),
-         State('date_range','start_date'),
-         State('date_range','end_date')])
-def outoutoutotut(n_clicks, value, start_date, end_date):
-    value = int(value)
+    Output('stock_allcli','children'),
+    [Input('button_valider', 'n_clicks')],
+    [State('input_Nmois', 'value'),
+     State('date_range','start_date'),
+     State('date_range','end_date')])
+def maj_allcli(n_clicks, Nmois, start_date, end_date):
+    # Correction du typage des inputs
+    Nmois = int(Nmois)
     start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
     end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
-    allcli = allcli_construct(value, start_date, end_date)
     
-    if n_clicks > 0:
-        res = [html.H1(children = f'''Vous avez choisi {value} mois, cool.'''),
-               html.H2(children = 'Nombre de clients = ' + str(allcli.shape[0]))]
-        return res
-    else:
-        return None
+    # Création du dataframe des clients
+    allcli = allcli_construct(Nmois, start_date, end_date)
+    
+    return allcli.to_json(date_format = 'iso', orient = 'split')
+
+# Construction et affichage du tableau de la méthode géométrique
+@app.callback(
+    Output('tableau_groupes_value', 'children'),
+    [Input('stock_allcli', 'children')],
+    [State('input_Nmois', 'value')])
+def tableau(allcli_json, Nmois):
+    # Correction du typage des inputs
+    Nmois = int(Nmois)
+    
+    df = methode_geometrique_tableau(allcli_json, Nmois)
+    return generate_table(df)
+
+# Construction du df cohortes
+@app.callback(
+    Output('stock_cohortes', 'children'),
+    [Input('button_valider', 'n_clicks')],
+    [State('date_range','start_date'),
+     State('date_range','end_date'),
+     State('input_minimum_client','value')])
+def maj_cohortes(n_clicks, start_date, end_date, min_cli):
+    # Correction du typage des inputs
+    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    min_cli = int(min_cli)
+    
+    df_cohortes = df_cohortes_construct(start_date, end_date, min_cli)
+    
+    return df_cohortes.to_json(date_format = 'iso', orient = 'split')
+
+# Construction et affichage du graph des cohortes
+@app.callback(
+    Output('graph_cohortes', 'figure'),
+    [Input('stock_cohortes','children')],
+    [State('input_Nmois', 'value')])
+def graph_cohortes(df_cohortes_json, Nmois):
+    # Correction du typage des inputs
+    Nmois = int(Nmois)
+    
+    figure = graph_cohortes_construct(df_cohortes_json, Nmois)
+    return figure
 
 if __name__ == '__main__':
     app.run_server(debug=True)
