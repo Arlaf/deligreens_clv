@@ -14,10 +14,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
-
-
 
 ###############################################################################
 ###################### VARIABLES GLOBALES ET IMMUABLES ########################
@@ -130,7 +128,6 @@ def first_order(group):
     return group
 commandes = commandes.groupby('client_id').apply(first_order)
 
-    
 # Cohorte du client
 commandes['cohorte'] = commandes['first_order_date'].apply(lambda x: x.replace(day=1))
 
@@ -158,6 +155,10 @@ ajd = datetime.datetime.today().date()
 # Filtre des commandes
 def filtre_commandes(debut, fin):
     return  commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
+
+# Format d'affichage des nombres
+def format_nombres(nb):
+    return ['{:,.0f}'.format(x).replace(',', ' ') for x in nb]
 
 # Calcule les agrégats de toutes les commandes de chaque client
 def agregation_par_client(group, Nmois):
@@ -226,16 +227,32 @@ def methode_geometrique_tableau(allcli_json, Nmois):
     
     return allcli.groupby('classe').apply(agregation_methode_geometrique, N = len(allcli), Nmois = Nmois).reset_index()
 
-# Fonction d'agregation des cohortes
-def agregation_cohortes(group):
+# Fonction d'agregation des clients en cohortes
+def agregation_clients_cohortes(group):
     c1 = int(group['client_id'].nunique())
     c2 = int(group['order_number'].count())
     c3 = group['gross_revenue'].sum()
     colnames = ['nb_cli','nb_com','gross_revenue']
     return pd.Series([c1,c2,c3], index = colnames)
 
+# input : un dataframe contenant les dépenses par mois d'une seule cohorte et le nombre de mois minimum jusqu'auquel faire les prévisions
+# output : même dataframe avec la colonne des prévisions en plus
+def modelisation_depenses_cohorte(cohorte, Nmois):
+    # Calcul du modèle sur les vraies données
+    coef = np.polyfit(cohorte['age_mois'], np.log(cohorte['gross_revenue']), 1)
+    
+    # Si besoin on rajoute des lignes pour atteindre le nombre minimum de mois
+    if Nmois > cohorte['age_mois'].max():
+        new_rows_data = {'cohorte' : cohorte['cohorte'][0],
+                         'age_mois': np.arange(cohorte['age_mois'].max()+1, Nmois+1)}
+        new_rows = pd.DataFrame(new_rows_data, columns=['cohorte','age_mois'])
+        cohorte = cohorte.append(new_rows, sort = False).reset_index(drop= True)
+    
+    cohorte['estimation'] = np.exp(coef[0]*cohorte['age_mois']+coef[1])
+    return cohorte
+
 # Regroupe les clients par cohorte
-def df_cohortes_construct(debut, fin, min_cli):
+def df_cohortes_construct(debut, fin, Nmois, min_cli):
     df = filtre_commandes(debut, fin)
     # Age aujourd'hui en mois arrondi à l'inférieur (on ne compte que les mois complets)
     df['age_actuel_mois'] = (ajd - df['first_order_date']).dt.days//30
@@ -245,10 +262,19 @@ def df_cohortes_construct(debut, fin, min_cli):
     df['age_mois'] = (df['order_created_at'] - df['first_order_date']).dt.days//30
     
     # Agrégation
-    df_cohortes = df.groupby(['cohorte', 'age_mois']).apply(agregation_cohortes).reset_index()
+    df_cohortes = df.groupby(['cohorte', 'age_mois']).apply(agregation_clients_cohortes).reset_index()
     
     # On retire les cohortes qui ne contiennent pas assez de clients
     df_cohortes = df_cohortes.groupby('cohorte').filter(lambda group: group['nb_cli'].max() >= min_cli)
+    
+    # Séparation des cohortes
+    split_cohortes = df_cohortes.groupby('cohorte')
+    split_cohortes = [split_cohortes.get_group(x).reset_index(drop = True) for x in split_cohortes.groups]
+    
+    # On réinitialise le df_cohortes
+    df_cohortes = pd.DataFrame()
+    for cohorte in split_cohortes:
+        df_cohortes = df_cohortes.append(modelisation_depenses_cohorte(cohorte, Nmois), sort = False).reset_index(drop = True)
     
     return df_cohortes 
 
@@ -260,15 +286,13 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
     
     # Séparation des cohortes
     split_cohortes = df_cohortes.groupby('cohorte')
-    split_cohortes = [split_cohortes.get_group(x)[['age_mois','gross_revenue']] for x in split_cohortes.groups]
+    split_cohortes = [split_cohortes.get_group(x).reset_index(drop = True) for x in split_cohortes.groups]
     
     # Noms des cohortes
     titres = [x.strftime('%B %y').capitalize() + f''' ({int(df_cohortes.loc[df_cohortes['cohorte'] == x, 'nb_cli'].max())} clients)''' for x in df_cohortes['cohorte'].unique()]
     
     # Création du graphique
     ncols = 2 # Nombre de colonnes du layout
-        # Jusqu'à combien de mois va-t-on en X : max entre Nmois et l'age de la plus vieille cohorte
-    max_mois = max(df_cohortes['age_mois'].max(), Nmois)
     figure = tools.make_subplots(rows = int(math.ceil(len(titres)/ncols)),
                                  cols = ncols,
                                  subplot_titles = titres,
@@ -278,12 +302,9 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
     j = 1
     # Pour chaque cohorte
     for c in split_cohortes:
-        # Calcul du modèle
-        coef = np.polyfit(c['age_mois'], np.log(c['gross_revenue']), 1)
-
         # Courbe théorique
-        trace_theo = go.Scatter(x = np.arange(max_mois+1),
-                               y = np.exp(coef[0]*np.arange(max_mois+1)+coef[1]),
+        trace_theo = go.Scatter(x = list(c['age_mois']),
+                               y = list(c['estimation']),
                                mode = 'lines',
                                marker = dict(color = 'rgb(255, 0, 0)'))
         figure.append_trace(trace_theo, i, j)
@@ -303,7 +324,7 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
     
     figure['layout'].update(title = 'Evolution des dépenses des cohortes',
                             showlegend = False,
-                            height = 750)
+                            height = 850)
     # Ajout d'une ligne verticale
 #    figure['layout']['shapes'] = [{'type' : 'line',
 #                                       'x0' : Nmois,
@@ -314,6 +335,33 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
 #                                       'line' : {'dash' : 'dot',
 #                                                 'color' : 'rgb(0,0,0)'}}]
     return figure
+
+# Fonction d'agrégation des cohortes
+def agregation_cohortes(group, Nmois):
+    c1 = group['nb_cli'].max()
+    c2 = group.loc[group['age_mois']<=Nmois, 'estimation'].sum()
+    c3 = c2/c1
+    colnames = ['Nombre de clients', 'Valeur de la cohorte à ' + str(Nmois) + ' mois', ' Valeur moyenne d\'un client']
+    return pd.Series([c1,c2,c3], index = colnames)
+
+# Création du tableau des cohortes
+def tableau_cohortes_construct(df_cohortes_json, Nmois):
+    df_cohortes = pd.read_json(df_cohortes_json, orient = 'split')
+    # Reformatage des dates
+    df_cohortes['cohorte'] = pd.to_datetime(df_cohortes['cohorte']).dt.date
+    
+    tableau = df_cohortes.groupby('cohorte').apply(agregation_cohortes, Nmois = Nmois).reset_index()
+    
+    # Formatage du mois de la cohorte pour l'affichage
+    tableau['cohorte'] = [x.strftime('%B %y').capitalize() for x in tableau['cohorte']]
+    
+    # Formatage des nombres pour l'affichage
+    for col in tableau.select_dtypes(include = ['number']):
+        tableau[col] = format_nombres(tableau[col])
+        
+    tableau = tableau.rename({'cohorte' : 'Cohorte'}, axis = 'columns')
+    
+    return tableau
     
 ###############################################################################
 ################################# LAYOUT/VIEW #################################
@@ -410,9 +458,12 @@ app.layout = html.Div([
         # Colonne méthode 2
         html.Div([
             html.H4('Détails Méthode n°2'),
-            html.P('Ne conserver que les cohortes contenant au minimum'),
-            dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
-            html.P('clients.')
+            html.P([
+                 'Ne conserver que les cohortes contenant au minimum ',
+                 dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
+                 ' clients.'
+            ]),
+            
         ], className = 'six columns'),
     ], className = 'row'),
     
@@ -466,14 +517,16 @@ def tableau(allcli_json, Nmois):
     [Input('button_valider', 'n_clicks')],
     [State('date_range','start_date'),
      State('date_range','end_date'),
+     State('input_Nmois', 'value'),
      State('input_minimum_client','value')])
-def maj_cohortes(n_clicks, start_date, end_date, min_cli):
+def maj_cohortes(n_clicks, start_date, end_date, Nmois, min_cli):
     # Correction du typage des inputs
     start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
     end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    Nmois = int(Nmois)
     min_cli = int(min_cli)
     
-    df_cohortes = df_cohortes_construct(start_date, end_date, min_cli)
+    df_cohortes = df_cohortes_construct(start_date, end_date, Nmois, min_cli)
     
     return df_cohortes.to_json(date_format = 'iso', orient = 'split')
 
@@ -488,6 +541,18 @@ def graph_cohortes(df_cohortes_json, Nmois):
     
     figure = graph_cohortes_construct(df_cohortes_json, Nmois)
     return figure
+
+# Construction et affichage du tableau des cohortes
+@app.callback(
+    Output('tableau_cohortes', 'children'),
+    [Input('stock_cohortes','children')],
+    [State('input_Nmois', 'value')])
+def tableau_cohortes(df_cohortes_json, Nmois):
+    # Correction du typage des inputs
+    Nmois = int(Nmois)
+    
+    tableau = tableau_cohortes_construct(df_cohortes_json, Nmois)
+    return generate_table(tableau)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
