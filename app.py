@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 #import gunicorn
 import fonctions_core_bd as fcore
 import fonctions_dates as fdate
@@ -121,12 +119,15 @@ commandes = commandes.drop('order_number_count', axis = 'columns')
 commandes = commandes.rename({'gross_revenue_sum' : 'gross_revenue',
                               'order_number_min' : 'order_number'}, axis = 'columns')
 
-# Calcul de la date de première commande
-def first_order(group):
-    res = group['order_created_at'].min()
-    group['first_order_date'] = res
+# Calcul des date de première et dernière commandes
+def first_last_order(group):
+    premiere = group['order_created_at'].min()
+    derniere = group['order_created_at'].max()
+    group['first_order_date'] = premiere
+    group['lastest_order_date'] = derniere
     return group
-commandes = commandes.groupby('client_id').apply(first_order)
+# Ajout des colonnes date de première et dernière commandes
+commandes = commandes.groupby('client_id').apply(first_last_order)
 
 # Cohorte du client
 commandes['cohorte'] = commandes['first_order_date'].apply(lambda x: x.replace(day=1))
@@ -152,13 +153,13 @@ ajd = datetime.datetime.today().date()
 ###################### MANIPULATION DYNAMIQUE DE DATA #########################
 ###############################################################################
 
-# Filtre des commandes
-def filtre_commandes(debut, fin):
-    return  commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
+# Format d'affichage des montants
+def format_montant(nb):
+    return ['{:,.2f}'.format(x).replace(',', ' ') + ' €' for x in nb]
 
-# Format d'affichage des nombres
-def format_nombres(nb):
-    return ['{:,.0f}'.format(x).replace(',', ' ') for x in nb]
+# Format d'affichage des pourcentages
+def format_pct(pct):
+    return '{:.1f}'.format(100*pct)
 
 # Calcule les agrégats de toutes les commandes de chaque client
 def agregation_par_client(group, Nmois):
@@ -178,10 +179,14 @@ def agregation_par_client(group, Nmois):
     colnames = ['premiere', 'derniere', 'orders_count', 'panier_moyen', 'value_totale', 'valueXpremiers', 'valueXmoitie', 'valueXderniers']
     return pd.Series([c1,c2,c3,c4,c5,c6,c7,c8], index = colnames)
 
+# Espérance géométrique du nombre de commandes
+#def prevision_nb_commandes():
+    
+
 # Création du dataframe des clients
-def allcli_construct(Nmois, debut, fin):
-    # Filtre des commandes
-    df_commandes = filtre_commandes(debut, fin)
+def allcli_construct(Nmois, debut):
+    # On ne garde que les clients qui ont passé au moins une commande après la date choisie
+    df_commandes = commandes.loc[commandes['lastest_order_date'] >= debut,:].copy()
        
     # Agrégation
     allcli = df_commandes.groupby('client_id').apply(agregation_par_client, Nmois = Nmois).reset_index()
@@ -193,10 +198,10 @@ def allcli_construct(Nmois, debut, fin):
     
     # Le client est-il encore actif ?
         # 3 catégories de clients : 1 seule commande passées ; entre 2 et 5 ; 6 ou plus
-    seuil_com1, seuil_com2 = [1, 5]
+    seuil_com = [1, 5]
         # Nombres de jours nécessaires pour que les clients de chaque catégorie soient considérés comme parti
-    seuil_jour1, seuil_jour2, seuil_jour3 = [30, 50, 70]
-    allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour1 if ligne['orders_count'] <= seuil_com1 else ligne['pas_vu_depuis'] < seuil_jour2 if ligne['orders_count'] <= seuil_com2 else ligne['pas_vu_depuis'] < seuil_jour3 for i, ligne in allcli.iterrows()]
+    seuil_jour = [30, 50, 70]
+    allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour[0] if ligne['orders_count'] <= seuil_com[0] else ligne['pas_vu_depuis'] < seuil_jour[1] if ligne['orders_count'] <= seuil_com[1] else ligne['pas_vu_depuis'] < seuil_jour[2] for i, ligne in allcli.iterrows()]
     
     return allcli
 
@@ -225,7 +230,37 @@ def methode_geometrique_tableau(allcli_json, Nmois):
     # On ne garde que les clients qui ne sont plus actifs ou qui ont atteint la dernière classe de nombre de commandes
     allcli = allcli.loc[~(allcli['actif']) | (allcli['classe'] == labels[len(labels)-1]),:]
     
-    return allcli.groupby('classe').apply(agregation_methode_geometrique, N = len(allcli), Nmois = Nmois).reset_index()
+    # Pour estimer la valeur totale des clients qui sont encore là après le seuil max de commandes :
+    # On suppose qu'une fois qu'un client a atteint le seuil maximal de nombre commande, sa probabilité de départ après chaque nouvelle commandes est constante
+    # Le nombre de commandes qu'il va passer avant de partir suit donc une loi géométrique
+    # Recherche du paramètre p de cette loi
+    clients_dernier_seuil = allcli.loc[allcli['classe'] == labels[len(labels)-1], :].copy()
+    nb_dernieres_commandes = np.size(clients_dernier_seuil['actif']) - np.count_nonzero(clients_dernier_seuil['actif'])
+    # Nombre commandes qu'on passé tous ces clients après avoir atteint le dernier seuil
+    nb_commandes = clients_dernier_seuil['orders_count'].sum() - len(clients_dernier_seuil)*(bins[len(bins)-2]-1)
+    # Probabilté p qu'un client de cette dernière catégorie nous quitte après chaque commande
+    p = nb_dernieres_commandes / nb_commandes
+    # Estimation du nombre moyen de commandes par clients :
+    nb_com_estime = int(round(1/p)) + bins[len(bins)-2]-1
+    # Panier moyen des clients de cette catégorie
+    panier_moyen = clients_dernier_seuil['panier_moyen'].mean()
+    # Value estimée
+    value_estimee = panier_moyen * nb_com_estime
+    
+    # Création du tableau
+    tableau_geo = allcli.groupby('classe').apply(agregation_methode_geometrique, N = len(allcli), Nmois = Nmois).reset_index()
+    
+    # On place notre valeur estimée dans le tableau
+    tableau_geo.loc[tableau_geo['classe'] == labels[len(labels)-1], 'Value Totale'] = value_estimee
+    
+    # Calcul d'une ligne moyenne
+    ligne_moyenne = ['Moyenne', 1.0]
+    for i in range(2,6):
+        ligne_moyenne.append(sum(tableau_geo['Probabilité'] * tableau_geo.iloc[:,i]))
+        
+    # Ajout de la ligne moyenne
+    tableau_geo = tableau_geo.append(pd.DataFrame([ligne_moyenne], columns =list(tableau_geo.columns)), ignore_index=True)
+    return  tableau_geo
 
 # Fonction d'agregation des clients en cohortes
 def agregation_clients_cohortes(group):
@@ -253,7 +288,8 @@ def modelisation_depenses_cohorte(cohorte, Nmois):
 
 # Regroupe les clients par cohorte
 def df_cohortes_construct(debut, fin, Nmois, min_cli):
-    df = filtre_commandes(debut, fin)
+    # Filtrage des commandes selon les dates de première commande des clients
+    df = commandes.loc[(commandes['first_order_date'] >= debut) & (commandes['first_order_date'] <= fin),:].copy()
     # Age aujourd'hui en mois arrondi à l'inférieur (on ne compte que les mois complets)
     df['age_actuel_mois'] = (ajd - df['first_order_date']).dt.days//30
     # on enlève les commandes du mois en cours pour chaque client (si un client est là depuis 1,2 mois on se limite à 1 mois de données)
@@ -292,7 +328,7 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
     titres = [x.strftime('%B %y').capitalize() + f''' ({int(df_cohortes.loc[df_cohortes['cohorte'] == x, 'nb_cli'].max())} clients)''' for x in df_cohortes['cohorte'].unique()]
     
     # Création du graphique
-    ncols = 2 # Nombre de colonnes du layout
+    ncols = 3 # Nombre de colonnes du layout
     figure = tools.make_subplots(rows = int(math.ceil(len(titres)/ncols)),
                                  cols = ncols,
                                  subplot_titles = titres,
@@ -351,15 +387,6 @@ def tableau_cohortes_construct(df_cohortes_json, Nmois):
     df_cohortes['cohorte'] = pd.to_datetime(df_cohortes['cohorte']).dt.date
     
     tableau = df_cohortes.groupby('cohorte').apply(agregation_cohortes, Nmois = Nmois).reset_index()
-    
-    # Formatage du mois de la cohorte pour l'affichage
-    tableau['cohorte'] = [x.strftime('%B %y').capitalize() for x in tableau['cohorte']]
-    
-    # Formatage des nombres pour l'affichage
-    for col in tableau.select_dtypes(include = ['number']):
-        tableau[col] = format_nombres(tableau[col])
-        
-    tableau = tableau.rename({'cohorte' : 'Cohorte'}, axis = 'columns')
     
     return tableau
     
@@ -438,7 +465,7 @@ app.layout = html.Div([
             html.H2('Méthode n°1'),
             html.Div(id = 'tableau_groupes_value', className = 'row'),
             html.Div(id = 'graph_poids_des_groupes', className = 'row')
-        ], className = 'five columns'),
+        ], className = 'six columns'),
         # Colonne Méthode 2
         html.Div([
             html.H2('Méthode n°2'),
@@ -446,7 +473,7 @@ app.layout = html.Div([
                 dcc.Graph(id = 'graph_cohortes')
             ], className = 'row'),
             html.Div(id = 'tableau_cohortes', className = 'row'),
-        ], className = 'seven columns'),
+        ], className = 'six columns'),
     ], className = 'row'),
     
     # Détails des études
@@ -469,7 +496,8 @@ app.layout = html.Div([
     
     # Divs invisibles qui stockera les données intermédiaires
     html.Div(id = 'stock_allcli', style = {'display': 'none'}),
-    html.Div(id = 'stock_cohortes', style = {'display': 'none'})
+    html.Div(id = 'stock_cohortes', style = {'display': 'none'}),
+    html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'})
     
 ])
 
@@ -495,7 +523,7 @@ def maj_allcli(n_clicks, Nmois, start_date, end_date):
     end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
     
     # Création du dataframe des clients
-    allcli = allcli_construct(Nmois, start_date, end_date)
+    allcli = allcli_construct(Nmois, start_date)
     
     return allcli.to_json(date_format = 'iso', orient = 'split')
 
@@ -504,12 +532,20 @@ def maj_allcli(n_clicks, Nmois, start_date, end_date):
     Output('tableau_groupes_value', 'children'),
     [Input('stock_allcli', 'children')],
     [State('input_Nmois', 'value')])
-def tableau(allcli_json, Nmois):
+def tableau_geo(allcli_json, Nmois):
     # Correction du typage des inputs
     Nmois = int(Nmois)
     
-    df = methode_geometrique_tableau(allcli_json, Nmois)
-    return generate_table(df)
+    tableau = methode_geometrique_tableau(allcli_json, Nmois)
+    
+    # Format d'affichage des nombres
+    for col in tableau.drop(['Probabilité'],axis = 1).select_dtypes(include = ['float64']):
+        tableau[col] = format_montant(tableau[col])
+        
+    # Format d'affichage des pourcentages
+    tableau['Probabilité'] = [format_pct(x) + ' %' for x in tableau['Probabilité']]
+    
+    return generate_table(tableau)
 
 # Construction du df cohortes
 @app.callback(
@@ -542,9 +578,9 @@ def graph_cohortes(df_cohortes_json, Nmois):
     figure = graph_cohortes_construct(df_cohortes_json, Nmois)
     return figure
 
-# Construction et affichage du tableau des cohortes
+# Construction du tableau des cohortes
 @app.callback(
-    Output('tableau_cohortes', 'children'),
+    Output('stock_tableau_cohortes', 'children'),
     [Input('stock_cohortes','children')],
     [State('input_Nmois', 'value')])
 def tableau_cohortes(df_cohortes_json, Nmois):
@@ -552,6 +588,25 @@ def tableau_cohortes(df_cohortes_json, Nmois):
     Nmois = int(Nmois)
     
     tableau = tableau_cohortes_construct(df_cohortes_json, Nmois)
+    return tableau.to_json(date_format = 'iso', orient = 'split')
+
+# Affichage du tableau des cohortes
+@app.callback(
+        Output('tableau_cohortes', 'children'),
+        [Input('stock_tableau_cohortes', 'children')])
+def affichage_tableau_cohortes(tableau_json):
+    tableau = pd.read_json(tableau_json, orient = 'split')
+    # Reformatage des dates
+    tableau['cohorte'] = pd.to_datetime(tableau['cohorte']).dt.date
+    
+    # Formatage du mois de la cohorte pour l'affichage
+    tableau['cohorte'] = [x.strftime('%B %y').capitalize() for x in tableau['cohorte']]
+    
+    # Formatage des nombres pour l'affichage
+    for col in tableau.select_dtypes(include = ['float64']):
+        tableau[col] = format_montant(tableau[col])
+        
+    tableau = tableau.rename({'cohorte' : 'Cohorte'}, axis = 'columns')
     return generate_table(tableau)
 
 if __name__ == '__main__':
