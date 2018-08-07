@@ -265,6 +265,21 @@ def methode_geometrique_tableau(allcli_json, Nmois):
     
     return  tableau_geo
 
+# Génère le graph du poids des groupes de la méthode géométrique
+def graph_poids_construct(tableau_geo_json):
+    tableau_geo = pd.read_json(tableau_geo_json, orient = 'split')
+    # La valeur a découper
+    tot = float(tableau_geo['Value Totale'][-1:])
+    
+    labels = tableau_geo['Nombre de commandes'][:-1]
+    values = (tableau_geo['Proportion'][:-1] * tableau_geo['Value Totale'][:-1])/tot
+    
+    trace = go.Pie(labels=labels, values=values)
+    
+    figure = go.Figure(data =[trace])
+    
+    return figure
+
 # Fonction d'agregation des clients en cohortes
 def agregation_clients_cohortes(group):
     c1 = int(group['client_id'].nunique())
@@ -494,7 +509,9 @@ app.layout = html.Div([
                         # Onglet Résultats (méthode 1)
                         dcc.Tab(label='Résultats', children=[
                             html.Div(id = 'tableau_groupes_value', className = 'row'),
-                            html.Div(id = 'graph_poids_des_groupes', className = 'row')
+                            html.Div([
+                                dcc.Graph(id = 'graph_poids_des_groupes')
+                            ], className = 'row')
                         ]),
                         # Onglet Détails (méthode 1)
                         dcc.Tab(label='Détails', children=[
@@ -534,6 +551,7 @@ app.layout = html.Div([
     
         # Divs invisibles qui stockeront les données intermédiaires
         html.Div(id = 'stock_allcli', style = {'display': 'none'}),
+        html.Div(id = 'stock_tableau_geo', style = {'display': 'none'}),
         html.Div(id = 'stock_cohortes', style = {'display': 'none'}),
         html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'})
     ])
@@ -565,9 +583,9 @@ def maj_allcli(n_clicks, Nmois, start_date, end_date):
     
     return allcli.to_json(date_format = 'iso', orient = 'split')
 
-# Construction et affichage du tableau de la méthode géométrique
+# Construction du tableau de la méthode géométrique
 @app.callback(
-    Output('tableau_groupes_value', 'children'),
+    Output('stock_tableau_geo', 'children'),
     [Input('stock_allcli', 'children')],
     [State('input_Nmois', 'value')])
 def tableau_geo(allcli_json, Nmois):
@@ -575,6 +593,16 @@ def tableau_geo(allcli_json, Nmois):
     Nmois = int(Nmois)
     
     tableau = methode_geometrique_tableau(allcli_json, Nmois)
+    return tableau.to_json(date_format = 'iso', orient = 'split')
+    
+    
+    
+# Affichage du tableau de la méthode géométrique
+@app.callback(
+    Output('tableau_groupes_value','children'),
+    [Input('stock_tableau_geo','children')])
+def affich_tableau_geo(tableau_json):
+    tableau = pd.read_json(tableau_json, orient = 'split')
     
     # Format d'affichage des nombres
     for col in tableau.drop(['Proportion'],axis = 1).select_dtypes(include = ['float64']):
@@ -584,6 +612,14 @@ def tableau_geo(allcli_json, Nmois):
     tableau['Proportion'] = [format_pct(x) + ' %' for x in tableau['Proportion']]
     
     return generate_table(tableau)
+
+# Construction et affichage du graph sur le poids des groupes de la méthode géométrique
+@app.callback(
+        Output('graph_poids_des_groupes', 'figure'),
+        [Input('stock_tableau_geo', 'children')])
+def graph_poids(tableau_geo_json):    
+    figure = graph_poids_construct(tableau_geo_json)
+    return figure
 
 # Construction du df cohortes
 @app.callback(
