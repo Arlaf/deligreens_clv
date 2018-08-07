@@ -212,7 +212,7 @@ def agregation_methode_geometrique(group, N, Nmois):
     c3 = group['valueXpremiers'].mean()
     c4 = group['valueXmoitie'].mean()
     c5 = group['valueXderniers'].mean()
-    colnames = ['Probabilité', 'Value Totale', 'Value ' + str(Nmois) + ' premiers mois', 'Value ' + str(Nmois//2) + ' premiers '+ str(Nmois//2) + ' derniers mois', 'Value ' + str(Nmois) + ' derniers mois']
+    colnames = ['Proportion', 'Value Totale', 'Value ' + str(Nmois) + ' premiers mois', 'Value ' + str(Nmois//2) + ' premiers '+ str(Nmois//2) + ' derniers mois', 'Value ' + str(Nmois) + ' derniers mois']
     return pd.Series([c1,c2,c3,c4,c5], index = colnames)
 
 # Génère le tableau de la méthode 1
@@ -256,10 +256,13 @@ def methode_geometrique_tableau(allcli_json, Nmois):
     # Calcul d'une ligne moyenne
     ligne_moyenne = ['Moyenne', 1.0]
     for i in range(2,6):
-        ligne_moyenne.append(sum(tableau_geo['Probabilité'] * tableau_geo.iloc[:,i]))
+        ligne_moyenne.append(sum(tableau_geo['Proportion'] * tableau_geo.iloc[:,i]))
         
     # Ajout de la ligne moyenne
     tableau_geo = tableau_geo.append(pd.DataFrame([ligne_moyenne], columns =list(tableau_geo.columns)), ignore_index=True)
+    
+    tableau_geo = tableau_geo.rename({'classe' : 'Nombre de commandes'}, axis = 'columns')
+    
     return  tableau_geo
 
 # Fonction d'agregation des clients en cohortes
@@ -352,6 +355,15 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
                            marker = dict(color = 'rgb(0, 0, 0)'))
         figure.append_trace(trace_emp, i, j)
         
+        # Ligne verticale
+        trace_ligne = go.Scatter(x = [Nmois, Nmois],
+                                 y = [0, c['gross_revenue'].max()],
+                                 mode = 'lines',
+                                 line = dict(dash = 'dot',
+                                             color = 'rgb(0,0,0)'),
+                                 hoverinfo = 'none')
+        figure.append_trace(trace_ligne, i, j)
+        
         if j == ncols:
             j = 1
             i = i+1
@@ -359,8 +371,11 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
             j = j+1
     
     figure['layout'].update(title = 'Evolution des dépenses des cohortes',
-                            showlegend = False,
-                            height = 850)
+                            showlegend = False#,
+#                            height = 850
+                            )
+    
+    #### CETTE METHODE N'AFFICHE UNE LIGNE VERTICALE QUE SUR LE PREMIERE GRAPH
     # Ajout d'une ligne verticale
 #    figure['layout']['shapes'] = [{'type' : 'line',
 #                                       'x0' : Nmois,
@@ -387,6 +402,23 @@ def tableau_cohortes_construct(df_cohortes_json, Nmois):
     df_cohortes['cohorte'] = pd.to_datetime(df_cohortes['cohorte']).dt.date
     
     tableau = df_cohortes.groupby('cohorte').apply(agregation_cohortes, Nmois = Nmois).reset_index()
+    
+    # Formatage du mois de la cohorte pour l'affichage
+    tableau['cohorte'] = [x.strftime('%B %y').capitalize() for x in tableau['cohorte']]
+    
+    # Calcul d'une ligne moyenne
+    N = sum(tableau['Nombre de clients'])
+    ligne_moyenne = ['Moyenne', int(N), sum(tableau['Nombre de clients']*tableau.iloc[:,2])/N, sum(tableau['Nombre de clients']*tableau.iloc[:,3])/N]
+    
+    tableau = tableau.append(pd.DataFrame([ligne_moyenne], columns = list(tableau.columns)), ignore_index =True)
+    
+    tableau['Nombre de clients'] = tableau['Nombre de clients'].astype(int)
+    
+    # Formatage des nombres pour l'affichage
+    for col in tableau.select_dtypes(include = ['float64']):
+        tableau[col] = format_montant(tableau[col])
+        
+    tableau = tableau.rename({'cohorte' : 'Cohorte'}, axis = 'columns')
     
     return tableau
     
@@ -539,11 +571,11 @@ def tableau_geo(allcli_json, Nmois):
     tableau = methode_geometrique_tableau(allcli_json, Nmois)
     
     # Format d'affichage des nombres
-    for col in tableau.drop(['Probabilité'],axis = 1).select_dtypes(include = ['float64']):
+    for col in tableau.drop(['Proportion'],axis = 1).select_dtypes(include = ['float64']):
         tableau[col] = format_montant(tableau[col])
         
     # Format d'affichage des pourcentages
-    tableau['Probabilité'] = [format_pct(x) + ' %' for x in tableau['Probabilité']]
+    tableau['Proportion'] = [format_pct(x) + ' %' for x in tableau['Proportion']]
     
     return generate_table(tableau)
 
@@ -597,16 +629,9 @@ def tableau_cohortes(df_cohortes_json, Nmois):
 def affichage_tableau_cohortes(tableau_json):
     tableau = pd.read_json(tableau_json, orient = 'split')
     # Reformatage des dates
-    tableau['cohorte'] = pd.to_datetime(tableau['cohorte']).dt.date
+#    tableau['cohorte'] = pd.to_datetime(tableau['cohorte']).dt.date
     
-    # Formatage du mois de la cohorte pour l'affichage
-    tableau['cohorte'] = [x.strftime('%B %y').capitalize() for x in tableau['cohorte']]
-    
-    # Formatage des nombres pour l'affichage
-    for col in tableau.select_dtypes(include = ['float64']):
-        tableau[col] = format_montant(tableau[col])
-        
-    tableau = tableau.rename({'cohorte' : 'Cohorte'}, axis = 'columns')
+
     return generate_table(tableau)
 
 if __name__ == '__main__':
