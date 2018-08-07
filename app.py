@@ -446,91 +446,97 @@ server = app.server
 
 # Layout
 app.layout = html.Div([
-        
-    # Header
-    html.Div([
-        # Colonne Barre Latérale
-        html.Div([
-            html.H4('Onglet 1'),
-            html.H4('Onglet 2')
-        ], className = 'two columns'),
-        # Colonne Formulaire
-        html.Div([
-            html.H1('Dashboard CLV'),
-            # Ligne des labels
-            html.Div([
-                html.Div([
-                    html.Label('Sur combien de mois calculer la CLV :')
-                ], className = 'six columns'),
-                html.Div([
-                    html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
-                ], className = 'six columns'),
-            ], className = 'row'),
-            # Ligne des inputs
-            html.Div([
-                    html.Div([
-                        dcc.Input(id = 'input_Nmois', type = 'number', value = '18')
-                    ], className = 'six columns'),
-                    html.Div([
-                        dcc.DatePickerRange(
-                            id='date_range',
-                            display_format = 'DD/MM/YY',
-                            min_date_allowed = datetime.date(2015, 1, 1),
-                            max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
-                            # Par défaut : du 1er mars 2017 à il y a 4 mois
-                            start_date = datetime.date(2017, 3, 1),
-                            end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
-                        )
-                    ], className = 'six columns'),
-            ], className = 'row'),
-            # Ligne du bouton
-            html.Div([
-                html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
-            ], className = 'row')
-        ], className = ' ten columns')
-    ], className = 'row'),
-    
-    # Résultat des études
-    html.Div([
-        # Colonne Méthode 1
-        html.Div([
-            html.H2('Méthode n°1'),
-            html.Div(id = 'tableau_groupes_value', className = 'row'),
-            html.Div(id = 'graph_poids_des_groupes', className = 'row')
-        ], className = 'six columns'),
-        # Colonne Méthode 2
-        html.Div([
-            html.H2('Méthode n°2'),
-            html.Div([
-                dcc.Graph(id = 'graph_cohortes')
-            ], className = 'row'),
-            html.Div(id = 'tableau_cohortes', className = 'row'),
-        ], className = 'six columns'),
-    ], className = 'row'),
-    
-    # Détails des études
-    html.Div([
-        # Colonne méthode 1
-        html.Div([
-            html.H4('Détails Méthode n°1')
-        ], className = 'six columns'),
-        # Colonne méthode 2
-        html.Div([
-            html.H4('Détails Méthode n°2'),
-            html.P([
-                 'Ne conserver que les cohortes contenant au minimum ',
-                 dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
-                 ' clients.'
-            ]),
+    dcc.Tabs(id="tabs", children=[
             
-        ], className = 'six columns'),
-    ], className = 'row'),
+        # Onglet CLV
+        dcc.Tab(label='CLV', children=[
+            # Header
+            html.Div([
+                html.H1('Dashboard CLV'),
+                # Ligne des labels
+                html.Div([
+                    html.Div([
+                        html.Label('Sur combien de mois calculer la CLV :')
+                    ], className = 'six columns'),
+                    html.Div([
+                        html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
+                    ], className = 'six columns'),
+                ], className = 'row'),
+                # Ligne des inputs
+                html.Div([
+                        html.Div([
+                            dcc.Input(id = 'input_Nmois', type = 'number', value = '18')
+                        ], className = 'six columns'),
+                        html.Div([
+                            dcc.DatePickerRange(
+                                id='date_range',
+                                display_format = 'DD/MM/YY',
+                                min_date_allowed = datetime.date(2015, 1, 1),
+                                max_date_allowed = ajd if ajd == fdate.lastday_of_month(ajd) else ajd - datetime.timedelta(ajd.day), # Dernier jour du dernier mois fini
+                                # Par défaut : du 1er mars 2017 à il y a 4 mois
+                                start_date = datetime.date(2017, 3, 1),
+                                end_date = datetime.date(fdate.AddMonths(ajd,-4).year, fdate.AddMonths(ajd,-4).month, fdate.lastday_of_month(fdate.AddMonths(ajd,-4)).day)
+                            )
+                        ], className = 'six columns'),
+                ], className = 'row'),
+                # Ligne du bouton
+                html.Div([
+                    html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
+                ], className = 'row')
+            ], className = 'row'),
+            
+            # Résultat des études
+            html.Div([
+                # Colonne Méthode 1
+                html.Div([
+                    html.H2('Méthode n°1'),
+                    dcc.Tabs(id='tab_methode1', children=[
+                        # Onglet Résultats (méthode 1)
+                        dcc.Tab(label='Résultats', children=[
+                            html.Div(id = 'tableau_groupes_value', className = 'row'),
+                            html.Div(id = 'graph_poids_des_groupes', className = 'row')
+                        ]),
+                        # Onglet Détails (méthode 1)
+                        dcc.Tab(label='Détails', children=[
+                            html.P('La méthode 1 ne fait pas dans le détail !')
+                        ])
+                    ])
+                ], className = 'six columns'),
+                # Colonne Méthode 2
+                html.Div([
+                    html.H2('Méthode n°2'),
+                    dcc.Tabs(id='tab_methode2', children=[
+                        # Onglet Résultats (méthode 2)
+                        dcc.Tab(label='Résultats', children=[
+                            html.Div([
+                                dcc.Graph(id = 'graph_cohortes')
+                            ], className = 'row'),
+                            html.Div(id = 'tableau_cohortes', className = 'row')
+                        ]),
+                        # Onglet Détails (méthode 2)
+                        dcc.Tab(label='Détails', children=[
+                            html.P([
+                                 'Ne conserver que les cohortes contenant au minimum ',
+                                 dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
+                                 ' clients.'
+                            ])
+                        ]),
+                    ])
+                ], className = 'six columns'),
+            ], className = 'row'),
+        ]),
+        
+        # Onglet
+        dcc.Tab(label='Mort', children=[
+            html.H1('Coucou tout le monde !')
+        ]),
     
-    # Divs invisibles qui stockera les données intermédiaires
-    html.Div(id = 'stock_allcli', style = {'display': 'none'}),
-    html.Div(id = 'stock_cohortes', style = {'display': 'none'}),
-    html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'})
     
+        # Divs invisibles qui stockeront les données intermédiaires
+        html.Div(id = 'stock_allcli', style = {'display': 'none'}),
+        html.Div(id = 'stock_cohortes', style = {'display': 'none'}),
+        html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'})
+    ])
 ])
 
 app.css.append_css({
