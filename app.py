@@ -143,11 +143,46 @@ def orders_counting(group):
     return group
 commandes = commandes.groupby('client_id').apply(orders_counting)
 
+# Délai avec la commandes suivante
+def calcul_delai(group):
+    if len(group)>1:
+        res = (group['order_created_at'].shift(-1) - group['order_created_at']).dt.days
+        group['delai'] = res
+    else:
+        group['delai'] = np.NaN
+    return group
+commandes = commandes.groupby('client_id').apply(calcul_delai)
+
 # Age en jour lors de la commandes
 commandes['age'] = (commandes['order_created_at'] - commandes['first_order_date']).dt.days
 
 # Date d'aujourd'hui
 ajd = datetime.datetime.today().date()
+
+# Pas vu depuis : pour les dernières commandes de chaque client : depuis combien de temps le client n'a pas commandé
+commandes.loc[np.isnan(commandes['delai']),'pas_vu_depuis'] = (ajd - commandes.loc[np.isnan(commandes['delai']), 'order_created_at']).dt.days
+
+# Construction du df_delai
+def df_delais_construct(commandes):
+    # Création d'un df_delais : une ligne est un délai en jour, revenu = True si le client a repassé commande après ce délai, False sinon
+    df_delais = commandes.loc[~np.isnan(commandes['delai']), ['delai']].copy()
+    df_delais['revenu'] = True
+    
+    df_temp = commandes.loc[np.isnan(commandes['delai']), ['pas_vu_depuis']].copy()
+    df_temp = df_temp.rename({'pas_vu_depuis' : 'delai'}, axis = 'columns')
+    df_temp['revenu'] = False
+    
+    df_delais = df_delais.append(df_temp)
+    return df_delais
+
+# Quand on observe qu'un client n'a pas commandé depuis X jours, combien a-t-on de chances de le revoir commander ?
+def chances_de_recommander(df_delais, x):
+    # Nombre de retours après un délai > x
+    nb_ret = sum((df_delais['delai'] > x) & (df_delais['revenu']))
+    nb_tot = sum(df_delais['delai'] > x)
+    return nb_ret/nb_tot
+
+    
 
 ###############################################################################
 ###################### MANIPULATION DYNAMIQUE DE DATA #########################
@@ -215,16 +250,35 @@ def agregation_methode_geometrique(group, N, Nmois):
     colnames = ['Proportion', 'Value Totale', 'Value ' + str(Nmois) + ' premiers mois', 'Value ' + str(Nmois//2) + ' premiers '+ str(Nmois//2) + ' derniers mois', 'Value ' + str(Nmois) + ' derniers mois']
     return pd.Series([c1,c2,c3,c4,c5], index = colnames)
 
+# Input : les valeurs sur lesquels segmenter dans un seul string
+# Output : les listes bins et labels adaptées pour regrouper une variable en classe
+def creation_classes(string_segmentation):
+    # Conversion du string fourni par l'utilisateur en liste d'entiers
+    bins = [int(x) for x in string_segmentation.split(',')] + [np.inf]
+    # Création des labels correspondants à la segmentation
+    labels = list()
+    for i in range(len(bins)-1): # On ne boucle pas sur le dernier élément de bins qui est +Infinite
+        if bins[i+1] - bins[i] == 1:
+            labels.append(str(bins[i]))
+        elif bins[i+1] == np.inf:
+            labels.append(str(bins[i]) + '+')
+        else:
+            labels.append(str(bins[i]) + '-' + str(bins[i+1]-1))
+    
+    out = [bins, labels]
+    return out
+
 # Génère le tableau de la méthode 1
-def methode_geometrique_tableau(allcli_json, Nmois):
+def methode_geometrique_tableau(allcli_json, Nmois, segmentation):
     allcli = pd.read_json(allcli_json, orient = 'split')
     # Reformatage des dates
     allcli['premiere'] = pd.to_datetime(allcli['premiere'])
     allcli['derniere'] = pd.to_datetime(allcli['derniere'])
     
     # Regrouper les orders_count en classes
-    bins = [1, 2, 3, 4, 5, 6, 9, 20] + [np.inf]
-    labels = ['1','2','3','4','5','6-8','9-19','20+']
+    seg = creation_classes(segmentation)
+    bins = seg[0]
+    labels = seg[1]
     allcli['classe'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
     
     # On ne garde que les clients qui ne sont plus actifs ou qui ont atteint la dernière classe de nombre de commandes
@@ -279,6 +333,15 @@ def graph_poids_construct(tableau_geo_json):
     figure = go.Figure(data =[trace])
     
     return figure
+
+
+
+
+
+
+
+
+
 
 # Fonction d'agregation des clients en cohortes
 def agregation_clients_cohortes(group):
@@ -386,8 +449,8 @@ def graph_cohortes_construct(df_cohortes_json, Nmois):
             j = j+1
     
     figure['layout'].update(title = 'Evolution des dépenses des cohortes',
-                            showlegend = False#,
-#                            height = 850
+                            showlegend = False,
+                            height = math.ceil(len(split_cohortes)/ncols)*180 # Hauteur de 180px par ligne
                             )
     
     #### CETTE METHODE N'AFFICHE UNE LIGNE VERTICALE QUE SUR LE PREMIERE GRAPH
@@ -515,7 +578,10 @@ app.layout = html.Div([
                         ]),
                         # Onglet Détails (méthode 1)
                         dcc.Tab(label='Détails', children=[
-                            html.P('La méthode 1 ne fait pas dans le détail !')
+                            html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées avant de partir ',
+                                    dcc.Input(id = 'segmentation_nb_com', type = 'text', value = '1,2,3,4,5,6,9,20'),
+                                    ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espaces)']),
+                            html.Div(id = 'tableau_segmentation')
                         ])
                     ])
                 ], className = 'six columns'),
@@ -545,7 +611,10 @@ app.layout = html.Div([
         
         # Onglet
         dcc.Tab(label='Mort', children=[
-            html.H1('Coucou tout le monde !')
+            html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées ',
+                    dcc.Input(id = 'segmentation_nb_com_actif', type = 'text', value = '1,2,6'),
+                    ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espaces)'
+            ])
         ]),
     
     
@@ -587,12 +656,13 @@ def maj_allcli(n_clicks, Nmois, start_date, end_date):
 @app.callback(
     Output('stock_tableau_geo', 'children'),
     [Input('stock_allcli', 'children')],
-    [State('input_Nmois', 'value')])
-def tableau_geo(allcli_json, Nmois):
+    [State('input_Nmois', 'value'),
+     State('segmentation_nb_com', 'value')])
+def tableau_geo(allcli_json, Nmois, segmentation):
     # Correction du typage des inputs
     Nmois = int(Nmois)
     
-    tableau = methode_geometrique_tableau(allcli_json, Nmois)
+    tableau = methode_geometrique_tableau(allcli_json, Nmois, segmentation)
     return tableau.to_json(date_format = 'iso', orient = 'split')
     
     
@@ -615,11 +685,25 @@ def affich_tableau_geo(tableau_json):
 
 # Construction et affichage du graph sur le poids des groupes de la méthode géométrique
 @app.callback(
-        Output('graph_poids_des_groupes', 'figure'),
-        [Input('stock_tableau_geo', 'children')])
+    Output('graph_poids_des_groupes', 'figure'),
+    [Input('stock_tableau_geo', 'children')])
 def graph_poids(tableau_geo_json):    
     figure = graph_poids_construct(tableau_geo_json)
     return figure
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Construction du df cohortes
 @app.callback(
