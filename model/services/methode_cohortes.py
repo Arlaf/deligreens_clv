@@ -8,7 +8,6 @@ import math
 from plotly import tools
 
 class Cohortes:
-    df_cohortes = pd.DataFrame()
     
     def __init__(self, commandes):
         self.commandes = commandes

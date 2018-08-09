@@ -1,19 +1,14 @@
 # -*- coding: utf-8 -*-
 
-#import gunicorn
-#import fonctions_core_bd as fcore
-#import fonctions_dates as fdate
 import pandas as pd
-#import numpy as np
 import datetime
-#import math
 import os
 import dash
 import dash_auth
 from dash.dependencies import Input, Output, State
-import utilitaires as util
 
-from model import df_commandes
+import utilitaires as util
+from model import module_commandes
 from model.services import methode_geo
 from model.services import methode_cohortes
 import views
@@ -22,7 +17,7 @@ import views
 import locale
 locale.setlocale(2,'')
 
-commandes = df_commandes.Commandes().commandes
+commandes = module_commandes.Commandes().commandes
 geo = methode_geo.MethodeGeo(commandes)
 cohortes = methode_cohortes.Cohortes(commandes)
 
@@ -39,9 +34,9 @@ app.css.append_css({
     'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 })
 
-
-
-######################## Controller
+###############################################################################
+################################# Controler ###################################
+###############################################################################
 
 # Construction du df allcli
 @app.callback(

@@ -6,7 +6,6 @@ import numpy as np
 import utilitaires as util
 
 class Commandes:
-    commandes = pd.DataFrame()
     
     def __init__(self):
   

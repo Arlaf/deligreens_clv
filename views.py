@@ -11,7 +11,10 @@ def generate_html(app):
     app.layout = html.Div([
         dcc.Tabs(id="tabs", children=[
                 
-            # Onglet CLV
+            ###################################################################
+            ########################### Onglet CLV ############################
+            ###################################################################
+            
             dcc.Tab(label='CLV', children=[
                 # Header
                 html.Div([
@@ -94,7 +97,11 @@ def generate_html(app):
                 ], className = 'row'),
             ]),
             
-            # Onglet
+            
+            ###################################################################
+            ############################# Onglet 2 ############################
+            ###################################################################
+    
             dcc.Tab(label='Mort', children=[
                 html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées ',
                         dcc.Input(id = 'segmentation_nb_com_actif', type = 'text', value = '1,2,6'),

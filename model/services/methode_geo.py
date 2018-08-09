@@ -7,7 +7,7 @@ import plotly.graph_objs as go
 import utilitaires as util
 
 class MethodeGeo:
-    allcli = pd.DataFrame()
+    
     def __init__(self, commandes):
         self.commandes = commandes
 
