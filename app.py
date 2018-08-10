@@ -11,6 +11,7 @@ import utilitaires as util
 from model import module_commandes
 from model.services import methode_geo
 from model.services import methode_cohortes
+from model.services import seuils_absences
 import views
 
 # Pour avoir les dates en français
@@ -20,6 +21,7 @@ locale.setlocale(2,'')
 commandes = module_commandes.Commandes().commandes
 geo = methode_geo.MethodeGeo(commandes)
 cohortes = methode_cohortes.Cohortes(commandes)
+seuils = seuils_absences.PredictionDepart(commandes)
 
 # Déclaration de l'application    
 app = dash.Dash('auth')
@@ -37,6 +39,8 @@ app.css.append_css({
 ###############################################################################
 ################################# Controler ###################################
 ###############################################################################
+
+########################### METHODE GEOMETRIQUE ###############################
 
 # Construction du df allcli
 @app.callback(
@@ -90,11 +94,32 @@ def affich_tableau_geo(tableau_json):
 # Construction et affichage du graph sur le poids des groupes de la méthode géométrique
 @app.callback(
     Output('graph_poids_des_groupes', 'figure'),
-    [Input('stock_tableau_geo', 'children')])
-def graph_poids(tableau_geo_json):    
-    figure = geo.graph_poids_construct(tableau_geo_json)
+    [Input('stock_tableau_geo', 'children'),
+     Input('dropdown_column_plotted', 'value')])
+def graph_poids(tableau_geo_json, colonne_choisie):    
+    figure = geo.graph_poids_construct(tableau_geo_json, colonne_choisie)
     return figure
 
+# MAJ des valeurs du dropdown
+@app.callback(
+    Output('dropdown_column_plotted','options'),
+    [Input('stock_tableau_geo', 'children')])
+def maj_dropdown_plotted_column(tableau_geo_json):
+    options = geo.dropdown_options(tableau_geo_json)
+    return options
+
+# Construction et affichage du tableau détails géo
+#@app.callback(
+#    Output('tableau_segmentation','children'),
+#    [Input('stock_allcli','children')],
+#    [State('segmentation_nb_com','value')])
+#def tableau_details_geo(allcli_json, segmentation):
+##    tableau_details = geo.tableau_details_construct(allcli_json, segmentation)
+#    tableau_details = pd.read_json(allcli_json, orient = 'split')
+#    print(tableau_details)
+#    return util.generate_table(tableau_details)
+
+############################# METHODE COHORTE #################################
 
 # Construction du df cohortes
 @app.callback(
@@ -149,6 +174,48 @@ def affichage_tableau_cohortes(tableau_json):
 #    tableau['cohorte'] = pd.to_datetime(tableau['cohorte']).dt.date
 
     return util.generate_table(tableau)
+
+########################### CHOIX SEUIL DEPART ################################
+    
+@app.callback(
+    Output('stock_df_delais', 'children'),
+    [Input('button_seuil_depart', 'n_clicks')],
+    [State('date_seuil', 'date')])
+def stockage_df_delais(n_clicks, date_seuil):
+    date_seuil = datetime.datetime.strptime(date_seuil, '%Y-%m-%d').date()
+    df_delais = seuils.df_delais_construct(date_seuil)
+    return df_delais.to_json(orient = 'split')
+
+@app.callback(
+    Output('graph_ecdf_global', 'figure'),
+    [Input('stock_df_delais','children')])
+def graph_ecdf_global(df_delais_json):
+    figure = seuils.graph_ecdf(df_delais_json)
+    return figure
+
+@app.callback(
+    Output('graph_ecdf_classe', 'figure'),
+    [Input('stock_df_delais','children'),
+     Input('segmentation_nb_com_actif', 'value')])
+def graph_ecdf_classe(df_delais_json, segmentation):
+    figure = seuils.graph_ecdf(df_delais_json, segmentation)
+    return figure
+
+@app.callback(
+    Output('graph_chances_retour_global', 'figure'),
+    [Input('stock_df_delais','children')])
+def graph_chances_retour_global(df_delais_json):
+    figure = seuils.graph_chances_de_revoir(df_delais_json, 0.2)
+    return figure
+
+@app.callback(
+    Output('graph_chances_retour_classe', 'figure'),
+    [Input('stock_df_delais','children'),
+     Input('segmentation_nb_com_actif', 'value')])
+def graph__chances_retour_classe(df_delais_json, segmentation):
+    figure = seuils.graph_chances_de_revoir(df_delais_json, 0.2, segmentation)
+    return figure
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)

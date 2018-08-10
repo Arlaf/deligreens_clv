@@ -65,24 +65,6 @@ class MethodeGeo:
         colnames = ['Proportion', 'Value Totale', 'Value ' + str(Nmois) + ' premiers mois', 'Value ' + str(Nmois//2) + ' premiers '+ str(Nmois//2) + ' derniers mois', 'Value ' + str(Nmois) + ' derniers mois']
         return pd.Series([c1,c2,c3,c4,c5], index = colnames)
     
-    # Input : les valeurs sur lesquels segmenter dans un seul string
-    # Output : les listes bins et labels adaptées pour regrouper une variable en classe
-    def creation_classes(self, string_segmentation):
-        # Conversion du string fourni par l'utilisateur en liste d'entiers
-        bins = [int(x) for x in string_segmentation.split(',')] + [np.inf]
-        # Création des labels correspondants à la segmentation
-        labels = list()
-        for i in range(len(bins)-1): # On ne boucle pas sur le dernier élément de bins qui est +Infinite
-            if bins[i+1] - bins[i] == 1:
-                labels.append(str(bins[i]))
-            elif bins[i+1] == np.inf:
-                labels.append(str(bins[i]) + '+')
-            else:
-                labels.append(str(bins[i]) + '-' + str(bins[i+1]-1))
-        
-        out = [bins, labels]
-        return out
-    
     # Génère le tableau de la méthode 1
     def methode_geometrique_tableau(self, allcli_json, Nmois, segmentation):
         allcli = pd.read_json(allcli_json, orient = 'split')
@@ -91,7 +73,7 @@ class MethodeGeo:
         allcli['derniere'] = pd.to_datetime(allcli['derniere'])
         
         # Regrouper les orders_count en classes
-        seg = self.creation_classes(segmentation)
+        seg = util.creation_classes(segmentation)
         bins = seg[0]
         labels = seg[1]
         allcli['classe'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
@@ -135,16 +117,45 @@ class MethodeGeo:
         return  tableau_geo
     
     # Génère le graph du poids des groupes de la méthode géométrique
-    def graph_poids_construct(self, tableau_geo_json):
+    def graph_poids_construct(self, tableau_geo_json, colonne_choisie):
         tableau_geo = pd.read_json(tableau_geo_json, orient = 'split')
         # La valeur a découper
-        tot = float(tableau_geo['Value Totale'][-1:])
+#        tot = float(tableau_geo[colonne_choisie][-1:])
         
         labels = tableau_geo['Nombre de commandes'][:-1]
-        values = (tableau_geo['Proportion'][:-1] * tableau_geo['Value Totale'][:-1])/tot
+        values = (tableau_geo['Proportion'][:-1] * tableau_geo[colonne_choisie][:-1])#/tot
+        values = [round(val, 2) for val in values]
         
-        trace = go.Pie(labels=labels, values=values)
+        trace = go.Pie(labels = labels,
+                       values = values,
+                       textinfo = 'label+value',
+                       hoverinfo = 'percent')
         
-        figure = go.Figure(data =[trace])
+        layout = {'title' : 'Poids des groupes dans la moyenne de ' + colonne_choisie}
+        
+        figure = go.Figure(data =[trace], layout = layout)
         
         return figure
+    
+    def dropdown_options(self, tableau_geo_json):
+        """Crée les options du dropdown qui permet de choisir quelle moyenne est découpée dans le pie chart"""
+        tableau_geo = pd.read_json(tableau_geo_json, orient = 'split')
+        columns = list(tableau_geo.columns[2:6])
+        options = [{'value' : col, 'label' : col} for col in columns]
+        return options
+    
+    def tableau_details_construct(self, allcli_json, segmentation):
+        allcli = pd.read_json(allcli_json, orient = 'split')
+        # Reformatage des dates
+        allcli['premiere'] = pd.to_datetime(allcli['premiere'])
+        allcli['derniere'] = pd.to_datetime(allcli['derniere'])
+        
+        # Regrouper les orders_count en classes
+        seg = util.creation_classes(segmentation)
+        bins = seg[0]
+        labels = seg[1]
+        allcli['classe'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
+        tableau_details = pd.crosstab(index = allcli['classe'],
+                                      columns = allcli['actif'],
+                                      margins = True)
+        return tableau_details

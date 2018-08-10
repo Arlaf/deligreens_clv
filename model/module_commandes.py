@@ -6,6 +6,9 @@ import numpy as np
 import utilitaires as util
 
 class Commandes:
+    """Destinée à n'être instanciée qu'une seule fois, au lancement de l'application, 
+    cette classe récupère les données, les nettoie et les prépare pour le reste de l'app.
+    Ces données sont contenues dans le DataFrame commandes"""
     
     def __init__(self):
   
@@ -75,9 +78,6 @@ class Commandes:
         for i in range(8556,8620+1):
             self.commandes.loc[self.commandes['order_number']==i,'gross_revenue'] = commandes3.loc[commandes3['order_number']==i,'gross_revenue'].values
         
-        # Suppression des données plus utiles
-        del [commandes1, commandes2, commandes3, email_id, req]
-        
         # On n'a pas besoin de l'heure, on va juste garder les dates
         self.commandes['order_created_at'] = self.commandes['order_created_at'].dt.date
         
@@ -105,8 +105,10 @@ class Commandes:
         self.commandes = self.commandes.rename({'gross_revenue_sum' : 'gross_revenue',
                                       'order_number_min' : 'order_number'}, axis = 'columns')
         
-        # Calcul des date de première et dernière self.commandes
         def first_last_order(group):
+            """Calcul des date de première et dernière commandes d'un DataFrame donné
+            Destiné à un groupby.apply par client"""
+            
             premiere = group['order_created_at'].min()
             derniere = group['order_created_at'].max()
             group['first_order_date'] = premiere
@@ -124,6 +126,9 @@ class Commandes:
         
         # Nombre de self.commandes
         def orders_counting(group):
+            """Compte les commandes d'un DataFrame
+            Déstiné à un groupby.apply par client"""
+            
             res = group['nieme'].max()
             group['orders_count'] = res
             return group
@@ -131,6 +136,9 @@ class Commandes:
         
         # Délai avec la self.commandes suivante
         def calcul_delai(group):
+            """Calcul du délai en jour entre une commande et la suivante
+            Déstiné à un groupby.apply par client"""
+            
             if len(group)>1:
                 res = (group['order_created_at'].shift(-1) - group['order_created_at']).dt.days
                 group['delai'] = res

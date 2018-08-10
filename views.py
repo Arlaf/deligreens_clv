@@ -61,15 +61,23 @@ def generate_html(app):
                             dcc.Tab(label='Résultats', children=[
                                 html.Div(id = 'tableau_groupes_value', className = 'row'),
                                 html.Div([
-                                    dcc.Graph(id = 'graph_poids_des_groupes')
+                                    html.Div([
+                                        dcc.Dropdown(id = 'dropdown_column_plotted', clearable = False, options = {'label' : 'Value Totale', 'value' : 'Value Totale'}, value = 'Value Totale')
+                                    ], className = 'three columns'),
+                                    html.Div([
+                                        dcc.Graph(id = 'graph_poids_des_groupes')
+                                    ], className = 'nine columns'),
                                 ], className = 'row')
                             ]),
                             # Onglet Détails (méthode 1)
                             dcc.Tab(label='Détails', children=[
-                                html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées avant de partir ',
-                                        dcc.Input(id = 'segmentation_nb_com', type = 'text', value = '1,2,3,4,5,6,9,20'),
-                                        ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espace)']),
-                                html.Div(id = 'tableau_segmentation')
+                                html.Div([
+                                    html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées avant de partir ',
+                                            dcc.Input(id = 'segmentation_nb_com', type = 'text', value = '1,2,3,4,5,6,9,20'),
+                                            ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espace)']),
+#                                    html.Button(id = 'boutontest', n_clicks = 0, children = 'Valider'),
+                                    html.Div(id = 'tableau_segmentation')
+                                ])
                             ])
                         ])
                     ], className = 'six columns'),
@@ -99,16 +107,42 @@ def generate_html(app):
             
             
             ###################################################################
-            ############################# Onglet 2 ############################
+            ################ Onglet choix des seuils de départ ################
             ###################################################################
     
             dcc.Tab(label='Mort', children=[
-                html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées ',
+                # Header
+                html.Div([
+                    html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées ',
                         dcc.Input(id = 'segmentation_nb_com_actif', type = 'text', value = '1,2,6'),
                         ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espace)'
-                ]),
-                html.Label('Hauteur de la barre horizontale'),
-                dcc.Slider(id = 'slider_pct', min = 0, max = 100, step = 5, value = 25)
+                    ]),
+                    html.Label('Se limiter aux clients arrivés après le :'),
+                    dcc.DatePickerSingle(id='date_seuil', date = datetime.date(2017, 1, 1), display_format = 'DD/MM/YY'),
+                    html.Button(id = 'button_seuil_depart', n_clicks = 0, children = 'Valider'),
+                    html.Label('Hauteur de la barre horizontale'),
+                    dcc.Slider(id = 'slider_pct', min = 0, max = 100, step = 5, value = 25)
+                ], className = 'row'),
+                # Résultats
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            dcc.Graph(id = 'graph_ecdf_global')
+                        ], className = 'six columns'),
+                        html.Div([
+                            dcc.Graph(id = 'graph_ecdf_classe')
+                        ], className = 'six columns')
+                    ], className = 'row'),
+                    html.Div([
+                        html.Div([
+                            dcc.Graph(id = 'graph_chances_retour_global')
+                        ], className = 'six columns'),
+                        html.Div([
+                            dcc.Graph(id = 'graph_chances_retour_classe')
+                        ], className = 'six columns')
+                    ], className = 'row')
+                ], className = 'row')
+                
             ]),
         
         
@@ -116,7 +150,8 @@ def generate_html(app):
             html.Div(id = 'stock_allcli', style = {'display': 'none'}),
             html.Div(id = 'stock_tableau_geo', style = {'display': 'none'}),
             html.Div(id = 'stock_cohortes', style = {'display': 'none'}),
-            html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'})
+            html.Div(id = 'stock_tableau_cohortes', style = {'display': 'none'}),
+            html.Div(id = 'stock_df_delais', style = {'display': 'none'})
         ])
     ])
     

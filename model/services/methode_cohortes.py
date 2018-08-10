@@ -91,6 +91,8 @@ class Cohortes:
             # Courbe théorique
             trace_theo = go.Scatter(x = list(c['age_mois']),
                                    y = list(c['estimation']),
+                                   text = [f'''Mois : {str(c['age_mois'][i])}<br>Estimation = {'{:,.2f}'.format(c['estimation'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
+                                   hoverinfo = 'text',
                                    mode = 'lines',
                                    marker = dict(color = 'rgb(255, 0, 0)'))
             figure.append_trace(trace_theo, i, j)
@@ -98,13 +100,15 @@ class Cohortes:
             # Courbe empirique
             trace_emp = go.Scatter(x = list(c['age_mois']),
                                y = list(c['gross_revenue']),
+                               text = [f'''Mois : {str(c['age_mois'][i])}<br>Observation = {'{:,.2f}'.format(c['gross_revenue'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
+                               hoverinfo = 'text',
                                mode = 'markers',
                                marker = dict(color = 'rgb(0, 0, 0)'))
             figure.append_trace(trace_emp, i, j)
             
             # Ligne verticale
             trace_ligne = go.Scatter(x = [Nmois, Nmois],
-                                     y = [0, c['gross_revenue'].max()],
+                                     y = [0, max([c['gross_revenue'].max(),c['estimation'].max()])],
                                      mode = 'lines',
                                      line = dict(dash = 'dot',
                                                  color = 'rgb(0,0,0)'),
@@ -113,13 +117,13 @@ class Cohortes:
             
             if j == ncols:
                 j = 1
-                i = i+1
+                i += 1
             else:
-                j = j+1
+                j += 1
         
         figure['layout'].update(title = 'Evolution des dépenses des cohortes',
                                 showlegend = False,
-                                height = math.ceil(len(split_cohortes)/ncols)*180 # Hauteur de 180px par ligne
+                                height = math.ceil(len(split_cohortes)/ncols)*180 # Hauteur en px par ligne
                                 )
         
         #### CETTE METHODE N'AFFICHE UNE LIGNE VERTICALE QUE SUR LE PREMIERE GRAPH

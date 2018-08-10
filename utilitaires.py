@@ -2,6 +2,7 @@
 
 import dash_html_components as html
 import datetime
+import numpy as np
 
 # Date d'aujourd'hui
 ajd = datetime.datetime.today().date()
@@ -40,3 +41,21 @@ def AddMonths(d,x):
     else:
         newday = d.day
     return datetime.date( newyear, newmonth, newday)
+
+# Input : les valeurs sur lesquels segmenter dans un seul string
+# Output : les listes bins et labels adaptées pour regrouper une variable en classe
+def creation_classes(segmentation):
+    # Conversion du string fourni par l'utilisateur en liste d'entiers
+    bins = [int(x) for x in segmentation.split(',')] + [np.inf]
+    # Création des labels correspondants à la segmentation
+    labels = list()
+    for i in range(len(bins)-1): # On ne boucle pas sur le dernier élément de bins qui est +Infinite
+        if bins[i+1] - bins[i] == 1:
+            labels.append(str(bins[i]))
+        elif bins[i+1] == np.inf:
+            labels.append(str(bins[i]) + '+')
+        else:
+            labels.append(str(bins[i]) + '-' + str(bins[i+1]-1))
+    
+    out = [bins, labels]
+    return out
