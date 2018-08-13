@@ -188,27 +188,28 @@ def stockage_df_delais(n_clicks, date_seuil):
     df_delais = seuils.df_delais_construct(date_seuil)
     return df_delais.to_json(orient = 'split')
 
-@app.callback(
-    Output('graph_ecdf_global', 'figure'),
-    [Input('stock_df_delais','children')])
-def graph_ecdf_global(df_delais_json):
-    figure = seuils.graph_ecdf(df_delais_json)
-    return figure
+#@app.callback(
+#    Output('graph_ecdf_global', 'figure'),
+#    [Input('stock_df_delais','children')])
+#def graph_ecdf_global(df_delais_json):
+#    figure = seuils.graph_ecdf(df_delais_json)
+#    return figure
 
 @app.callback(
     Output('graph_ecdf_classe', 'figure'),
     [Input('stock_df_delais','children'),
+     Input('seuils_actif_inactif', 'value'),
      Input('segmentation_nb_com_actif', 'value')])
-def graph_ecdf_classe(df_delais_json, segmentation):
-    figure = seuils.graph_ecdf(df_delais_json, segmentation)
+def graph_ecdf_classe(df_delais_json, seuils_actif, segmentation):
+    figure = seuils.graph_ecdf(df_delais_json, seuils_actif, segmentation)
     return figure
 
-@app.callback(
-    Output('graph_chances_retour_global', 'figure'),
-    [Input('stock_df_delais','children')])
-def graph_chances_retour_global(df_delais_json):
-    figure = seuils.graph_chances_de_revoir(df_delais_json, 0.2)
-    return figure
+#@app.callback(
+#    Output('graph_chances_retour_global', 'figure'),
+#    [Input('stock_df_delais','children')])
+#def graph_chances_retour_global(df_delais_json):
+#    figure = seuils.graph_chances_de_revoir(df_delais_json, 0.2)
+#    return figure
 
 @app.callback(
     Output('graph_chances_retour_classe', 'figure'),

@@ -15,7 +15,7 @@ def generate_html(app):
             ########################### Onglet CLV ############################
             ###################################################################
             
-            dcc.Tab(label='CLV', children=[
+            dcc.Tab(label='Customer Lifetime Value', children=[
                 # Header
                 html.Div([
                     html.H1('Dashboard CLV'),
@@ -110,38 +110,43 @@ def generate_html(app):
             ################ Onglet choix des seuils de départ ################
             ###################################################################
     
-            dcc.Tab(label='Mort', children=[
+            dcc.Tab(label='Détection des départs', children=[
                 # Header
                 html.Div([
-                    html.P(['Utiliser la segmentation suivante pour créer les groupes de clients en fonction du nombre de commandes qu\'ils ont passées ',
-                            dcc.Input(id = 'segmentation_nb_com_actif', type = 'text', value = '1,2,6'),
-                            ' (Bornes inférieures de chaque groupe : entiers, dans l\'ordre croissant, séparés par des virgules et sans espace)'
-                    ]),
-                    html.Label('Se limiter aux clients arrivés après le :'),
-                    dcc.DatePickerSingle(id='date_seuil', date = datetime.date(2017, 1, 1), display_format = 'DD/MM/YY'),
-                    html.Button(id = 'button_seuil_depart', n_clicks = 0, children = 'Valider')
+                    html.Div([
+                        html.Label('Regroupement des clients selon leur nombre de commandes'),
+                        dcc.Input(id = 'segmentation_nb_com_actif', type = 'text', value = '1,2,6'),
+                        html.Label('(Saisir les bornes inférieures de chaque groupe : chiffres entiers, dans l\'ordre croissant, séparés par des virgules et sans espace)')
+                    ], className = 'three columns'),
+                    html.Div([
+                        html.Label('Se limiter aux clients arrivés après le :'),
+                        dcc.DatePickerSingle(id='date_seuil', date = datetime.date(2017, 1, 1), display_format = 'DD/MM/YY')
+                    ], className = 'three columns'),
+                    html.Div([
+                        html.Button(id = 'button_seuil_depart', n_clicks = 0, children = 'Valider')
+                    ], className = 'three columns')
                 ], className = 'row'),
                 # Résultats
                 html.Div([
+#                    html.Div([
+#                        html.Div([
+#                            dcc.Graph(id = 'graph_ecdf_global')
+#                        ], className = 'six columns'),
+#                        html.Div([
+#                            dcc.Graph(id = 'graph_chances_retour_global')
+#                        ], className = 'six columns')
+#                    ], className = 'row'),
                     html.Div([
                         html.Div([
-                            dcc.Graph(id = 'graph_ecdf_global')
+                            dcc.Graph(id = 'graph_chances_retour_classe'),
+                            html.Label('Hauteur de la barre horizontale'),
+                            dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 20),
+                            html.Label('Choix des seuils'),
+                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70')
                         ], className = 'six columns'),
                         html.Div([
                             dcc.Graph(id = 'graph_ecdf_classe')
-                        ], className = 'six columns')
-                    ], className = 'row'),
-                    html.Div([
-                        html.Label('Hauteur de la barre horizontale'),
-                        dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 20),
-                        html.Div([
-                            dcc.Graph(id = 'graph_chances_retour_global')
                         ], className = 'six columns'),
-                        html.Div([
-                            dcc.Graph(id = 'graph_chances_retour_classe'),
-                            html.Label('Choix des seuils'),
-                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70')
-                        ], className = 'six columns')
                     ], className = 'row')
                 ], className = 'row')
                 

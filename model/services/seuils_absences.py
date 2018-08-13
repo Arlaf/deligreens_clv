@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from statsmodels.distributions.empirical_distribution import ECDF
+import plotly
 import plotly.graph_objs as go
 import utilitaires as util
 
@@ -34,9 +35,11 @@ class PredictionDepart:
         nb_tot = sum(df_delais['delai'] > x)
         return nb_ret/nb_tot
     
-    def graph_ecdf(self, df_delais_json, segmentation=None):
+    def graph_ecdf(self, df_delais_json, seuils, segmentation=None):
         df_delais = pd.read_json(df_delais_json, orient = 'split')
         df_delais = df_delais.loc[df_delais['revenu'],:]
+        
+        seuils = [int(x) for x in seuils.split(',')]
         
         if segmentation is None:  
             ecdf = ECDF(df_delais['delai'])
@@ -59,10 +62,33 @@ class PredictionDepart:
                 ecdf = ECDF(classe['delai'])
                 trace_i = go.Scatter(x = ecdf.x,
                                      y = ecdf.y,
-                                     name = classe['classe'][0])
+                                     name = classe['classe'][0],
+                                     hoverinfo = 'text',
+                                     text = [f'''{classe['classe'][0]}<br>{round(100*ecdf.y[i],1)}% des délais sont inférieurs ou égaux à {round(ecdf.x[i])} jours''' for i in range(len(ecdf.x))])
                 trace += [trace_i]
         
-        layout = {'title' : 'Répartition des délais entre 2 commandes'}
+        layout = {'title' : 'Répartition des délais entre 2 commandes',
+                  'xaxis' : {'range' : [0,200],
+                             'dtick' : 15,
+                             'title' : 'X : Délai en jour'},
+                  'yaxis' : {'dtick' : 0.1,
+                             'title' : 'Pourcentage des délais inférieurs ou égaux à X'}}
+        
+        lignes = []
+        col = plotly.colors.DEFAULT_PLOTLY_COLORS
+        j = 0
+        for i in seuils:
+            lignes += [{'type' : 'line',
+                       'x0' : i,
+                       'x1' : i,
+                       'y0' : 0,
+                       'y1' : 1,
+                       'line' : {'dash' : 'dash',
+                                 'color' : col[j]}}]
+            j += 1
+        
+        layout['shapes'] = lignes
+        
         figure = go.Figure(data =trace, layout = layout)
         return figure
 
@@ -96,7 +122,9 @@ class PredictionDepart:
                 trace += [trace_i]
         
         layout = {'title' : 'Chances qu\'un client repasse une commande après x jours sans commander',
-                  'yaxis' : {'range' : [0,1]},
+                  'yaxis' : {'range' : [0,1],
+                             'title' : 'Proportion de clients qui ont repassé une commandes<br>après avoir été absent X jours'},
+                  'xaxis' : {'title' : 'X : Durée d\'absence du client en jours'},
                   'shapes' : [{'type' : 'line',
                                 'x0': x[0],
                                 'y0': hauteur_barre,
@@ -109,4 +137,6 @@ class PredictionDepart:
                                 }}]}
         figure = go.Figure(data =trace, layout = layout)
         return figure
-            
+    
+    def graph_effectifs(self, allcli_json):
+        return figure
