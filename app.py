@@ -48,15 +48,17 @@ app.css.append_css({
     [Input('button_valider', 'n_clicks')],
     [State('input_Nmois', 'value'),
      State('date_range','start_date'),
-     State('date_range','end_date')])
-def maj_allcli(n_clicks, Nmois, start_date, end_date):
+     State('date_range','end_date'),
+     State('segmentation_nb_com_actif', 'value'),
+     State('seuils_actif_inactif', 'value')])
+def maj_allcli(n_clicks, Nmois, start_date, end_date, segmentation, seuils):
     # Correction du typage des inputs
     Nmois = int(Nmois)
     start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
     end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
     
     # Création du dataframe des clients
-    allcli = geo.allcli_construct(Nmois, start_date)
+    allcli = geo.allcli_construct(Nmois, start_date, segmentation, seuils)
     
     return allcli.to_json(date_format = 'iso', orient = 'split')
 
@@ -113,8 +115,8 @@ def maj_dropdown_plotted_column(tableau_geo_json):
 #    Output('tableau_segmentation','children'),
 #    [Input('stock_allcli','children')],
 #    [State('segmentation_nb_com','value')])
-#def tableau_details_geo(allcli_json, segmentation):
-##    tableau_details = geo.tableau_details_construct(allcli_json, segmentation)
+#def tableau_details_geo(allcli_json):
+##    tableau_details = geo.tableau_details_construct(allcli_json)
 #    tableau_details = pd.read_json(allcli_json, orient = 'split')
 #    print(tableau_details)
 #    return util.generate_table(tableau_details)
@@ -211,9 +213,10 @@ def graph_chances_retour_global(df_delais_json):
 @app.callback(
     Output('graph_chances_retour_classe', 'figure'),
     [Input('stock_df_delais','children'),
-     Input('segmentation_nb_com_actif', 'value')])
-def graph__chances_retour_classe(df_delais_json, segmentation):
-    figure = seuils.graph_chances_de_revoir(df_delais_json, 0.2, segmentation)
+     Input('segmentation_nb_com_actif', 'value'),
+     Input('slider_pct', 'value') ])
+def graph__chances_retour_classe(df_delais_json, segmentation, slider):
+    figure = seuils.graph_chances_de_revoir(df_delais_json, slider/100, segmentation)
     return figure
 
 

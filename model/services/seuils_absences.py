@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import pandas as pd
 from statsmodels.distributions.empirical_distribution import ECDF
@@ -93,8 +95,18 @@ class PredictionDepart:
                                      hoverinfo = 'text')
                 trace += [trace_i]
         
-        layout = {'title' : 'Chances qu\'un client repasse une commandes après x jours sans commander',
-                  'yaxis' : {'range' : [0,1]}}
+        layout = {'title' : 'Chances qu\'un client repasse une commande après x jours sans commander',
+                  'yaxis' : {'range' : [0,1]},
+                  'shapes' : [{'type' : 'line',
+                                'x0': x[0],
+                                'y0': hauteur_barre,
+                                'x1': x[len(x)-1],
+                                'y1': hauteur_barre,
+                                'line': {
+                                    'color': 'rgb(50, 171, 96)',
+                                    'width': 2,
+                                    'dash': 'dash',
+                                }}]}
         figure = go.Figure(data =trace, layout = layout)
         return figure
             

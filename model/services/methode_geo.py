@@ -34,7 +34,7 @@ class MethodeGeo:
         
     
     # Création du dataframe des clients
-    def allcli_construct(self, Nmois, debut):
+    def allcli_construct(self, Nmois, debut, segmentation, seuils_actif_inactif):
         # On ne garde que les clients qui ont passé au moins une commande après la date choisie
         df_commandes = self.commandes.loc[self.commandes['lastest_order_date'] >= debut,:].copy()
 
@@ -46,12 +46,17 @@ class MethodeGeo:
         allcli['ddv'] = (allcli['derniere'] - allcli['premiere']).dt.days
         allcli['pas_vu_depuis'] = (util.ajd - allcli['derniere']).dt.days
         
+        # Regrouper les orders_count en classes
+        seg = util.creation_classes(segmentation)
+        bins = seg[0]
+        labels = seg[1]
+        allcli['classe_actif'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
+        
+        seuil_jour = [int(x) for x in seuils_actif_inactif.split(',')]
+        
         # Le client est-il encore actif ?
-            # 3 catégories de clients : 1 seule commande passées ; entre 2 et 5 ; 6 ou plus
-        seuil_com = [1, 5]
-            # Nombres de jours nécessaires pour que les clients de chaque catégorie soient considérés comme parti
-        seuil_jour = [30, 50, 70]
-        allcli['actif'] = [ligne['pas_vu_depuis'] < seuil_jour[0] if ligne['orders_count'] <= seuil_com[0] else ligne['pas_vu_depuis'] < seuil_jour[1] if ligne['orders_count'] <= seuil_com[1] else ligne['pas_vu_depuis'] < seuil_jour[2] for i, ligne in allcli.iterrows()]
+        for i in range(len(labels)):
+            allcli.loc[allcli['classe_actif'] == labels[i], 'actif'] = allcli['pas_vu_depuis'] < seuil_jour[i]
         
         return allcli
     
@@ -155,6 +160,7 @@ class MethodeGeo:
         bins = seg[0]
         labels = seg[1]
         allcli['classe'] = pd.cut(allcli['orders_count'], bins, labels = labels, right=False)
+        
         tableau_details = pd.crosstab(index = allcli['classe'],
                                       columns = allcli['actif'],
                                       margins = True)
