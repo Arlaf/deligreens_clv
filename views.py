@@ -23,16 +23,16 @@ def generate_html(app):
                     html.Div([
                         html.Div([
                             html.Label('Sur combien de mois calculer la CLV :')
-                        ], className = 'six columns'),
+                        ], className = 'four columns'),
                         html.Div([
                             html.Label('Limiter l\'étude sur les clients qui ont passé leur première commande entre :')
-                        ], className = 'six columns'),
+                        ], className = 'four columns'),
                     ], className = 'row'),
                     # Ligne des inputs
                     html.Div([
                             html.Div([
                                 dcc.Input(id = 'input_Nmois', type = 'number', value = '18')
-                            ], className = 'six columns'),
+                            ], className = 'four columns'),
                             html.Div([
                                 dcc.DatePickerRange(
                                     id='date_range',
@@ -43,13 +43,12 @@ def generate_html(app):
                                     start_date = datetime.date(2017, 3, 1),
                                     end_date = datetime.date(util.AddMonths(util.ajd,-4).year, util.AddMonths(util.ajd,-4).month, util.lastday_of_month(util.AddMonths(util.ajd,-4)).day)
                                 )
-                            ], className = 'six columns'),
-                    ], className = 'row'),
-                    # Ligne du bouton
-                    html.Div([
-                        html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
+                            ], className = 'four columns'),
+                            html.Div([
+                                html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider')
+                            ], className = 'four columns')
                     ], className = 'row')
-                ], className = 'row'),
+                ]),
                 
                 # Résultat des études
                 html.Div([
@@ -61,13 +60,11 @@ def generate_html(app):
                             dcc.Tab(label='Résultats', children=[
                                 html.Div(id = 'tableau_groupes_value', className = 'row'),
                                 html.Div([
+                                    dcc.Graph(id = 'graph_poids_des_groupes'),
                                     html.Div([
                                         dcc.Dropdown(id = 'dropdown_column_plotted', clearable = False, options = {'label' : 'Value Totale', 'value' : 'Value Totale'}, value = 'Value Totale')
-                                    ], className = 'three columns'),
-                                    html.Div([
-                                        dcc.Graph(id = 'graph_poids_des_groupes')
-                                    ], className = 'nine columns'),
-                                ], className = 'row')
+                                    ], style = {'width':'35%', 'textAlign':'center', 'margin' : '0 auto'})
+                                ])
                             ]),
                             # Onglet Détails (méthode 1)
                             dcc.Tab(label='Détails', children=[
@@ -140,12 +137,12 @@ def generate_html(app):
                         html.Div([
                             dcc.Graph(id = 'graph_chances_retour_classe'),
                             html.Label('Hauteur de la barre horizontale'),
-                            dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 20),
-                            html.Label('Choix des seuils'),
-                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70')
+                            dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 20)
                         ], className = 'six columns'),
                         html.Div([
-                            dcc.Graph(id = 'graph_ecdf_classe')
+                            dcc.Graph(id = 'graph_ecdf_classe'),
+                            html.Label('Choix des seuils'),
+                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70')
                         ], className = 'six columns'),
                     ], className = 'row')
                 ], className = 'row')
@@ -161,5 +158,3 @@ def generate_html(app):
             html.Div(id = 'stock_df_delais', style = {'display': 'none'})
         ])
     ])
-    
-    
