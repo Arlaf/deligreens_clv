@@ -6,6 +6,7 @@ import os
 import dash
 import dash_auth
 from dash.dependencies import Input, Output, State
+import dash_html_components as html
 
 import utilitaires as util
 from model import module_commandes
@@ -110,6 +111,15 @@ def maj_dropdown_plotted_column(tableau_geo_json):
     options = geo.dropdown_options(tableau_geo_json)
     return options
 
+# Paragraphe des détails de la méthode 1
+@app.callback(
+    Output('detail_date_methode_1', 'children'),
+    [Input('date_range','start_date')])
+def maj_P_details_methode1(start_date):
+    # Correction du typage des inputs
+    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+    return html.P(f'''Tous les clients ayant passé au moins une commandes après le {start_date.strftime('%d/%m/%y')} ont été inclus dans cette méthode.''')
+
 # Construction et affichage du tableau détails géo
 #@app.callback(
 #    Output('tableau_segmentation','children'),
@@ -176,6 +186,17 @@ def affichage_tableau_cohortes(tableau_json):
 #    tableau['cohorte'] = pd.to_datetime(tableau['cohorte']).dt.date
 
     return util.generate_table(tableau)
+
+# Paragraphe des détails de la méthode 2
+@app.callback(
+    Output('detail_date_methode_2', 'children'),
+    [Input('date_range','start_date'),
+     Input('date_range','end_date')])
+def maj_P_details_methode2(start_date, end_date):
+    # Correction du typage des inputs
+    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    return html.P(f'''Tous les clients ayant passé leur première commande entre le {start_date.strftime('%d/%m/%y')} et le {end_date.strftime('%d/%m/%y')} ont été inclus dans cette méthode.''')
 
 ########################### CHOIX SEUIL DEPART ################################
     
