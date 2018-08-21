@@ -9,6 +9,13 @@ import numpy as np
 def generate_html(app):
     # Layout
     app.layout = html.Div([
+            
+#        # represents the URL bar, doesn't render anything
+#        dcc.Location(id='url', refresh=False),  
+#        # links
+#        dcc.Link('Page CLV', href = '/clv'),
+#        dcc.Link('Page new', href = '/new'),
+        
         html.H1('Dashboard CLV'),
         dcc.Tabs(id="tabs", children=[
                 
@@ -79,7 +86,7 @@ def generate_html(app):
                                     html.P("Les valeurs des clients à X mois sont elles des moyennes des données historiques, pas de prédiction nécessaires"),
 #                                    html.Button(id = 'boutontest', n_clicks = 0, children = 'Valider'),
                                     html.Div(id = 'tableau_segmentation')
-                                ])
+                                ], style = {'text-align':'justify'})
                             ])
                         ])
                     ], className = 'six columns'),
@@ -96,13 +103,16 @@ def generate_html(app):
                             ]),
                             # Onglet Détails (méthode 2)
                             dcc.Tab(label='Détails', children=[
-                                html.P([
-                                     'Ne conserver que les cohortes contenant au minimum ',
-                                     dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
-                                     ' clients.'
-                                ]),
-                                html.Div(id = 'detail_date_methode_2'),
-                                html.P("Les clients ont été regroupés dans des cohortes qui correspondent au mois de leur première commande. Le gross revenue de chaque cohorte au fil des mois glissants a été calculé et nous nous sommes servi d'une regression logarithmique pour modéliser et prédire la suite des dépenses des cohortes et ainsi obtenir une estimation à x mois.")
+                                html.Div([
+                                    html.P([
+                                        'Ne conserver que les cohortes contenant au minimum ',
+                                        dcc.Input(id = 'input_minimum_client', type = 'number', value = '20'),
+                                        ' clients.'
+                                    ]),
+                                    html.Div(id = 'detail_date_methode_2'),
+                                    html.P("Les clients ont été regroupés dans des cohortes qui correspondent au mois de leur première commande. Le gross revenue de chaque cohorte au fil des mois glissants a été calculé et nous nous sommes servi d'une regression logarithmique pour modéliser et prédire la suite des dépenses des cohortes et ainsi obtenir une estimation à x mois.")
+                                ], style = {'text-align':'justify'})
+                                
                             ]),
                         ])
                     ], className = 'six columns'),
@@ -144,12 +154,13 @@ def generate_html(app):
                         html.Div([
                             dcc.Graph(id = 'graph_chances_retour_classe'),
                             html.Label('Hauteur de la barre horizontale'),
-                            dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 20)
+                            dcc.Slider(id = 'slider_pct', min = 0, max = 100, marks = {str(val) : str(val)+'%' for val in np.arange(0,105,5)}, value = 25)
                         ], className = 'six columns'),
                         html.Div([
                             dcc.Graph(id = 'graph_ecdf_classe'),
                             html.Label('Choix des seuils'),
-                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70')
+                            dcc.Input(id = 'seuils_actif_inactif', type = 'text', value = '30,50,70'),
+                            html.P("Ces seuils seront utilisés dans le reste de l'application pour déterminer si un client est toujours actif en se basant sur son nombre de commandes et sa durée d'absence.")
                         ], className = 'six columns'),
                     ], className = 'row')
                 ], className = 'row')
