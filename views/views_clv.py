@@ -6,16 +6,16 @@ import datetime
 import utilitaires as util
 import numpy as np
 
-def generate_html(app):
+def generate_html():
     # Layout
-    app.layout = html.Div([
+    layout = html.Div([
             
 #        # represents the URL bar, doesn't render anything
 #        dcc.Location(id='url', refresh=False),  
 #        # links
 #        dcc.Link('Page CLV', href = '/clv'),
 #        dcc.Link('Page new', href = '/new'),
-        
+        dcc.Link('Retour à l\'index', href = '/'),
         html.H1('Dashboard CLV'),
         dcc.Tabs(id="tabs", children=[
                 
@@ -119,7 +119,6 @@ def generate_html(app):
                 ], className = 'row'),
             ]),
             
-            
             ###################################################################
             ################ Onglet choix des seuils de départ ################
             ###################################################################
@@ -167,7 +166,6 @@ def generate_html(app):
                 
             ]),
         
-        
             # Divs invisibles qui stockeront les données intermédiaires
             html.Div(id = 'stock_allcli', style = {'display': 'none'}),
             html.Div(id = 'stock_tableau_geo', style = {'display': 'none'}),
@@ -176,3 +174,5 @@ def generate_html(app):
             html.Div(id = 'stock_df_delais', style = {'display': 'none'})
         ])
     ], style = {'padding-left':'15px'})
+    
+    return layout
