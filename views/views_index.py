@@ -11,7 +11,8 @@ import dash_html_components as html
 
 def generate_html():
     layout = html.Div([
-        dcc.Link('Customer Lifetile Value', href = '/apps/app_clv'),
+        html.H1('Page d\'accueil de la mort qui tue !'),
+        dcc.Link('Customer Lifetime Value', href = '/apps/app_clv'),
         html.Br(),
         dcc.Link('Power User Curve', href = '/apps/app_puc')
     ])
