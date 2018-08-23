@@ -112,7 +112,7 @@ class Commandes:
             premiere = group['order_created_at'].min()
             derniere = group['order_created_at'].max()
             group['first_order_date'] = premiere
-            group['lastest_order_date'] = derniere
+            group['latest_order_date'] = derniere
             return group
         # Ajout des colonnes date de première et dernière self.commandes
         self.commandes = self.commandes.groupby('client_id').apply(first_last_order)

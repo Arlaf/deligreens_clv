@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output
 from views import views_clv, views_index, views_puc
 
 from app import app
-from apps import app_clv, app_puc # Néessaire même si non utilisé, meilleure méthode à trouver
+from apps import app_clv, app_puc # Nécessaire même si non utilisé, meilleure méthode à trouver
 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),

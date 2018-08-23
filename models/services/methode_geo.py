@@ -36,7 +36,7 @@ class MethodeGeo:
     # Création du dataframe des clients
     def allcli_construct(self, Nmois, debut, segmentation, seuils_actif_inactif):
         # On ne garde que les clients qui ont passé au moins une commande après la date choisie
-        df_commandes = self.commandes.loc[self.commandes['lastest_order_date'] >= debut,:].copy()
+        df_commandes = self.commandes.loc[self.commandes['latest_order_date'] >= debut,:].copy()
 
         # Agrégation
         allcli = df_commandes.groupby('client_id').apply(self.agregation_par_client, (Nmois)).reset_index()

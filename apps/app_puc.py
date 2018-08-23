@@ -18,21 +18,37 @@ puc = module_puc.PUC(commandes)
 
 @app.callback(
     Output('graph_puc','figure'),
-    [Input('button_valider','n_clicks')],
+    [Input('stock_commandes_filtered','children'),
+     Input('checkbox_cohorte','values')],
+    [State('date_range_commandes','start_date'),
+     State('date_range_commandes','end_date')]) 
+def maj_graph_puc(commandes_filtered_json, checkbox, start_date_com, end_date_com):
+    # Correction du typage des inputs
+    start_date_com = datetime.datetime.strptime(start_date_com, '%Y-%m-%d').date()
+    end_date_com = datetime.datetime.strptime(end_date_com, '%Y-%m-%d').date()
+    
+    use_cohorts = not checkbox == []
+    
+    figure = puc.graph_puc_construct(commandes_filtered_json, start_date_com, end_date_com, use_cohorts)
+    
+    return figure
+
+
+@app.callback(
+    Output('stock_commandes_filtered', 'children'),
+    [Input('button_valider', 'n_clicks')],
     [State('date_range_commandes','start_date'),
      State('date_range_commandes','end_date'),
      State('date_range_clients','start_date'),
-     State('date_range_clients','end_date'),
-     State('checkbox_cohorte','values')])
-def maj_graph_puc(n_clicks, start_date_com, end_date_com, start_date_cli, end_date_cli, checkbox):
+     State('date_range_clients','end_date')])
+def maj_commandes_filtered(n_clicks, start_date_com, end_date_com, start_date_cli, end_date_cli):
     # Correction du typage des inputs
     start_date_com = datetime.datetime.strptime(start_date_com, '%Y-%m-%d').date()
     end_date_com = datetime.datetime.strptime(end_date_com, '%Y-%m-%d').date()
     start_date_cli = datetime.datetime.strptime(start_date_cli, '%Y-%m-%d').date()
     end_date_cli = datetime.datetime.strptime(end_date_cli, '%Y-%m-%d').date()
     
-    use_cohorts = not checkbox == []
+    commandes_filtered = puc.filtrage_commandes(start_date_com, end_date_com, start_date_cli, end_date_cli)
     
-    figure = puc.graph_puc_construct(start_date_com, end_date_com, start_date_cli, end_date_cli, use_cohorts)
+    return commandes_filtered.to_json(date_format = 'iso', orient = 'split')
     
-    return figure

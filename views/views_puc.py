@@ -35,6 +35,8 @@ def generate_html():
             values = []
         ),
         dcc.Graph(id = 'graph_puc'),
-        html.Div(id = 'test')
+        
+        # Divs invisibles qui stockeront les données intermédiaires
+        html.Div(id = 'stock_commandes_filtered', style = {'display': 'none'})
     ])
     return layout
