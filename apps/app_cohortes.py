@@ -30,9 +30,18 @@ def maj_commandes_filtered(n_clicks, start_date, end_date):
     return commandes_filtered.to_json(date_format = 'iso', orient = 'split')
 
 @app.callback(
-    Output('tableau_evolution_cohortes', 'children'),
+    Output('stock_tableau_cohortes2', 'children'),
     [Input('stock_commandes_filtered2','children'),
      Input('dropdown_mesure','value')])
 def maj_tableau_cohortes(df_cohortes_json, mesure):
-    tableau = cohortes.tableau_cohortes_construct(df_cohortes_json, mesure)
+    tableau_cohortes = cohortes.tableau_cohortes_construct(df_cohortes_json, mesure)
+    return tableau_cohortes.to_json(date_format = 'iso', orient = 'split')
+
+@app.callback(
+    Output('tableau_evolution_cohortes', 'children'),
+    [Input('stock_tableau_cohortes2', 'children')],
+    [State('dropdown_mesure','value')])
+def affich_tableau_cohortes(tableau_cohortes_json, mesure):
+    tableau = cohortes.tableau_cohortes_affich(tableau_cohortes_json, mesure)
     return util.generate_table(tableau)
+    

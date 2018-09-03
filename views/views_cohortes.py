@@ -9,6 +9,7 @@ Created on Thu Aug 30 14:45:49 2018
 import dash_core_components as dcc
 import dash_html_components as html
 import datetime
+import utilitaires as util
 
 def generate_html():
     layout = html.Div([
@@ -18,8 +19,8 @@ def generate_html():
         dcc.DatePickerRange(
             id='date_range_cohortes',
             display_format = 'DD/MM/YY',
-            start_date = datetime.date(2018, 1, 1),
-            end_date = datetime.date(2018,7,31)
+            start_date = datetime.date(util.ajd.year-1, util.ajd.month, 1),
+            end_date = util.ajd
         ),
         html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider', style = {'margin' : '0px 0px 0px 5px'}),
         html.Label('Mesure à afficher', style = {'margin' : '10px 0px 0px 0px'}),
@@ -34,6 +35,7 @@ def generate_html():
         html.Div(id = 'tableau_evolution_cohortes'),
     
         # Divs invisibles qui stockeront les données intermédiaires
-        html.Div(id = 'stock_commandes_filtered2', style = {'display': 'none'})
+        html.Div(id = 'stock_commandes_filtered2', style = {'display': 'none'}),
+        html.Div(id = 'stock_tableau_cohortes2', style = {'display': 'none'})
     ])
     return layout

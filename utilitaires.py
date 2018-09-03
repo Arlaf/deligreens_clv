@@ -3,13 +3,14 @@
 import dash_html_components as html
 import datetime
 import numpy as np
+import math
 
 # Date d'aujourd'hui
 ajd = datetime.datetime.today().date()
 
 # Format d'affichage des montants
 def format_montant(nb):
-    return ['{:,.2f}'.format(x).replace(',', ' ') + ' €' for x in nb]
+    return ['{:,.2f}'.format(x).replace(',', ' ') + ' €' if not math.isnan(x) else math.nan for x in nb]
 
 # Format d'affichage des pourcentages
 def format_pct(pct):
@@ -29,7 +30,11 @@ def generate_table(dataframe, max_rows=20):
     
 def lastday_of_month(d):
     #Takes a datetime.date and returns the date for the last day in the same month.
-    return datetime.date(d.year, d.month+1, 1) - datetime.timedelta(1)
+    if d.month != 12:
+        res = datetime.date(d.year, d.month+1, 1) - datetime.timedelta(1)
+    else:
+        res = datetime.date(d.year+1, 1, 1) - datetime.timedelta(1)
+    return res
 
 def AddMonths(d,x):
     # Ajoute x mois à la date d (x peut être négatif)
