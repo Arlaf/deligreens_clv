@@ -14,7 +14,9 @@ def generate_html():
         html.H1('Page d\'accueil de la mort qui tue !'),
         dcc.Link('Customer Lifetime Value', href = '/apps/app_clv'),
         html.Br(),
-        dcc.Link('Power User Curve', href = '/apps/app_puc')
+        dcc.Link('Power User Curve', href = '/apps/app_puc'),
+        html.Br(),
+        dcc.Link('Analyse des cohortes', href = '/apps/app_cohortes')
     ])
     
     return layout

@@ -90,20 +90,20 @@ class Cohortes:
         for c in split_cohortes:
             # Courbe théorique
             trace_theo = go.Scatter(x = list(c['age_mois']),
-                                   y = list(c['estimation']),
-                                   text = [f'''Mois : {str(c['age_mois'][i])}<br>Estimation = {'{:,.2f}'.format(c['estimation'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
-                                   hoverinfo = 'text',
-                                   mode = 'lines',
-                                   marker = dict(color = 'rgb(255, 0, 0)'))
+                                    y = list(c['estimation']),
+                                    text = [f'''Mois : {str(c['age_mois'][i])}<br>Estimation = {'{:,.2f}'.format(c['estimation'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
+                                    hoverinfo = 'text',
+                                    mode = 'lines',
+                                    marker = dict(color = 'rgb(255, 0, 0)'))
             figure.append_trace(trace_theo, i, j)
             
             # Courbe empirique
             trace_emp = go.Scatter(x = list(c['age_mois']),
-                               y = list(c['gross_revenue']),
-                               text = [f'''Mois : {str(c['age_mois'][i])}<br>Observation = {'{:,.2f}'.format(c['gross_revenue'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
-                               hoverinfo = 'text',
-                               mode = 'markers',
-                               marker = dict(color = 'rgb(0, 0, 0)'))
+                                   y = list(c['gross_revenue']),
+                                   text = [f'''Mois : {str(c['age_mois'][i])}<br>Observation = {'{:,.2f}'.format(c['gross_revenue'][i]).replace(',', ' ')} €'''for i in range(len(c['age_mois']))],
+                                   hoverinfo = 'text',
+                                   mode = 'markers',
+                                   marker = dict(color = 'rgb(0, 0, 0)'))
             figure.append_trace(trace_emp, i, j)
             
             # Ligne verticale

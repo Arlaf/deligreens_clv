@@ -10,6 +10,7 @@ import numpy as np
 #import utilitaires as util
 import datetime
 import plotly.graph_objs as go
+import utilitaires as util
 
 class PUC:
     
@@ -43,47 +44,71 @@ class PUC:
         # Nombre de semaines
         Nsemaines = int(((fin_com - debut_com).days + 1)/7)
         
-        # Dans combien de semaines différentes chaque client a-t-il passé commande ?
-        df_cli = commandes_filtered.groupby(['client_id','cohorte']).agg({'semaine' : pd.Series.nunique}).reset_index()
+        # Dans combien de semaines différentes chaque client a-t-il passé commande ? et quel est son panier moyen ?
+        df_cli = commandes_filtered.groupby(['client_id','cohorte']).agg({'semaine' : pd.Series.nunique, 'gross_revenue' : 'mean'}).reset_index()
         
         # Combien de clients ont passé des commandes sur 1 seule semaine ? Sur 2 ? Sur 3....
         if use_cohorts:
-            df = df_cli.groupby(['semaine','cohorte']).agg({'client_id' : 'count'}).reset_index()
+            df = df_cli.groupby(['semaine','cohorte']).agg({'client_id' : 'count', 'gross_revenue' : 'mean'}).reset_index()
         else:
-            df = df_cli.groupby('semaine').agg({'client_id' : 'count'}).reset_index()
+            df = df_cli.groupby('semaine').agg({'client_id' : 'count', 'gross_revenue' : 'mean'}).reset_index()
         
         # Renommage des colonnes
         df = df.rename({'semaine' : 'nb_semaines',
-                        'client_id' : 'nb_clients'}, axis = 'columns')
-
+                        'client_id' : 'nb_clients',
+                        'gross_revenue' : 'panier_moyen'}, axis = 'columns')
+    
+        # Graph layout
+        layout = {'title' : f"""Nombre de semaines d'activité des clients entre le {debut_com.strftime('%d/%m/%y')} et le {fin_com.strftime('%d/%m/%y')}""",
+                   'xaxis' : {'dtick' : 1,
+                             'title' : 'Nombre de semaines avec commande'},
+                  'yaxis' : {'dtick' : 0.1,
+                             'title' : 'Pourcentage de client'}}
+        
+        # Graph traces
         if use_cohorts:
             trace = []
             x = np.arange(1,Nsemaines+1)
             for c in df['cohorte'].unique():
                 c = pd.to_datetime(c)
+                # Nombre de clients total de la cohorte
+                Ncli_cohorte_tot = self.commandes.loc[pd.to_datetime(self.commandes['cohorte']) == c, 'client_id'].nunique()
                 # Nombre de clients de la cohorte actifs pendant la période choisie
                 Ncli_cohorte = len(df_cli.loc[df_cli['cohorte'] == c,:])
-                # Nombre de clients total de la cohorte
-                Ncli_cohorte_tot = self.commandes.loc[self.commandes['cohorte'] == c, 'client_id'].nunique()
+                
                 y = np.asarray([0 if df.loc[(df['cohorte'] == c) & (df['nb_semaines'] == i),'nb_clients'].empty else df.loc[(df['cohorte'] == c) & (df['nb_semaines'] == i),'nb_clients'].reset_index(drop=True)[0] for i in x])
                 temp = go.Scatter(x = x,
                                   y = y/Ncli_cohorte,   
                                   name = c.strftime('%B %y').capitalize(),
                                   mode = 'lines',
                                   hoverinfo = 'text',
-                                  text = [f"""{c.strftime('%B %y').capitalize()} (Cohorte de {Ncli_cohorte_tot} clients à l'origine)<br>{Ncli_cohorte} clients actifs entre le {debut_com.strftime('%d/%m/%y')} et {fin_com.strftime('%d/%m/%y')} dont<br>{y[i]} ({round(100*y[i]/Ncli_cohorte,1)} %) actifs durant {x[i]} semaines différentes""" for i in range(len(x))])
+                                  text = [f"""{c.strftime('%B %y').capitalize()} (Cohorte de {Ncli_cohorte_tot} clients à l'origine)<br>{Ncli_cohorte} clients actifs entre le {debut_com.strftime('%d/%m/%y')} et {fin_com.strftime('%d/%m/%y')} dont<br><b>{y[i]}</b> ({round(100*y[i]/Ncli_cohorte,1)} %) actifs durant {x[i]} semaines différentes""" for i in range(len(x))])
                 trace += [temp]
         else:
             trace = [go.Bar(x = df['nb_semaines'],
                            y = df['nb_clients']/Nclients,
                            hoverinfo = 'text',
                            text = [f"""{df['nb_clients'][i]} ({round(100*df['nb_clients'][i]/Nclients,1)} %) clients ont passé commande sur {df['nb_semaines'][i]} semaines différentes.""" for i in range(len(df))])]
+            # panier moyen
+            temp = go.Scatter(x = df['nb_semaines'],
+                              y = df['panier_moyen'],
+                              name = 'Panier moyen',
+                              mode = 'markers',
+                              marker = {'size' : 8},
+                              hoverinfo = 'text',
+                              text = [f"""Panier moyen : {x}""" for x in util.format_montant(df['panier_moyen'])],
+                              yaxis = 'y2')
+            trace += [temp]
+            
+            # Ajout du second axe Y au layout
+            layout['yaxis2'] = {'title' : 'Panier moyen',
+                                'overlaying' : 'y',
+                                'side' : 'right',
+                                'range' : [0, df['panier_moyen'].max()+5],
+                                'showgrid' : False}
+            layout['showlegend'] = False
+    
         
-        layout = {'title' : f"""Nombre de semaines d'activité des clients entre le {debut_com.strftime('%d/%m/%y')} et le {fin_com.strftime('%d/%m/%y')}""",
-                   'xaxis' : {'dtick' : 1,
-                             'title' : 'Nombre de semaines avec commande'},
-                  'yaxis' : {'dtick' : 0.1,
-                             'title' : 'Pourcentage de client'}}
         
         figure = go.Figure(data = trace, layout = layout)
         

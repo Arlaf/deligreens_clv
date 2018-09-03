@@ -9,10 +9,10 @@ Created on Tue Aug 21 11:37:45 2018
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-from views import views_clv, views_index, views_puc
+from views import views_clv, views_index, views_puc, views_cohortes
 
 from app import app
-from apps import app_clv, app_puc # Nécessaire même si non utilisé, meilleure méthode à trouver
+from apps import app_clv, app_puc, app_cohortes # Nécessaire même si non utilisé, meilleure méthode à trouver
 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -29,6 +29,8 @@ def display_page(pathname):
         return views_clv.generate_html()
     elif pathname == '/apps/app_puc':
         return views_puc.generate_html()
+    elif pathname == '/apps/app_cohortes':
+        return views_cohortes.generate_html()
     else:
         return '404'
 
