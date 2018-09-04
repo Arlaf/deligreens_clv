@@ -11,6 +11,7 @@ import numpy as np
 import datetime
 import math
 import utilitaires as util
+import plotly.graph_objs as go
 
 class CohorteAnalysis:
     
@@ -95,3 +96,36 @@ class CohorteAnalysis:
         tableau.columns = ['Cohorte'] + ['Mois ' + str(i) for i in range(1, Ncol)]
         
         return tableau
+    
+    def graph_cohortes(self, tableau_cohortes_json, mesure):
+        tableau = pd.read_json(tableau_cohortes_json, orient = 'split', convert_dates = ['cohorte'])
+        
+        # Conversion des dates en datetime
+        tableau['cohorte'] = [datetime.datetime(x.year, x.month, x.day) for x in pd.to_datetime(tableau['cohorte'])]
+        
+        Ncol = len(tableau.columns)
+        
+        
+        
+        trace = []
+        for i in tableau.index:
+            y = list(tableau.iloc[i,1:])
+            name = tableau.iloc[i,0].strftime('%B %y').capitalize()
+            temp = go.Scatter(x = np.arange(1,Ncol),
+                              y = y,
+                              mode = 'lines+markers',
+                              name = name,
+                              hoverinfo = 'text',
+                              text = [f"""<b>{name}</b><br>{x} """ for x in y],
+                              # Visible par défaut si la courbe a plus de 6 valeurs
+                              visible = "legendonly" if (len(y)-sum([math.isnan(x) for x in y])) < 7  else True)
+            trace += [temp]
+            
+        layout = {'title' : 'Evolution de <mesure> par cohorte',
+                  'xaxis' : {'title' : 'Mois glissants',
+                             'dtick' : 1},
+                  'yaxis' : {'title' : '<mesure>'}}
+            
+        figure = go.Figure(data = trace, layout = layout)
+        
+        return figure

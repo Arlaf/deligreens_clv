@@ -33,6 +33,7 @@ def generate_html():
                                                                                {'label' : 'Panier moyen', 'value' : 'panier_moyen'}], value = 'gross_revenue')
         ], style = {'maxWidth':'300px'}),
         html.Div(id = 'tableau_evolution_cohortes'),
+        dcc.Graph(id = 'graph_cohortes2'),
     
         # Divs invisibles qui stockeront les données intermédiaires
         html.Div(id = 'stock_commandes_filtered2', style = {'display': 'none'}),

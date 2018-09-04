@@ -44,4 +44,10 @@ def maj_tableau_cohortes(df_cohortes_json, mesure):
 def affich_tableau_cohortes(tableau_cohortes_json, mesure):
     tableau = cohortes.tableau_cohortes_affich(tableau_cohortes_json, mesure)
     return util.generate_table(tableau)
+
+@app.callback(
+    Output('graph_cohortes2', 'figure'),
+    [Input('stock_tableau_cohortes2', 'children')])
+def affich_graph_cohortes(tableau_cohortes_json):
+    return cohortes.graph_cohortes(tableau_cohortes_json, 'a')
     
