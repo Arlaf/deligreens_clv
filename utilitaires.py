@@ -14,7 +14,8 @@ def format_montant(nb):
 
 # Format d'affichage des pourcentages
 def format_pct(pct):
-    return '{:.1f}'.format(100*pct)
+#    return '{:.1f}'.format(100*pct)
+    return ['{:.1f}'.format(100*x) + ' %' if not math.isnan(x) else math.nan for x in pct]
 
 def generate_table(dataframe, max_rows=20):
     #Given dataframe, return template generated using Dash components

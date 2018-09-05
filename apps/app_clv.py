@@ -73,7 +73,8 @@ def affich_tableau_geo(tableau_json):
         tableau[col] = util.format_montant(tableau[col])
         
     # Format d'affichage des pourcentages
-    tableau['Proportion'] = [util.format_pct(x) + ' %' for x in tableau['Proportion']]
+#    tableau['Proportion'] = [util.format_pct(x) + ' %' for x in tableau['Proportion']]
+    tableau['Proportion'] = util.format_pct(tableau['Proportion'])
     
     return util.generate_table(tableau)
 

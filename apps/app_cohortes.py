@@ -32,22 +32,26 @@ def maj_commandes_filtered(n_clicks, start_date, end_date):
 @app.callback(
     Output('stock_tableau_cohortes2', 'children'),
     [Input('stock_commandes_filtered2','children'),
-     Input('dropdown_mesure','value')])
-def maj_tableau_cohortes(df_cohortes_json, mesure):
-    tableau_cohortes = cohortes.tableau_cohortes_construct(df_cohortes_json, mesure)
+     Input('dropdown_mesure', 'value'),
+     Input('radio_affichage', 'value')])
+def maj_tableau_cohortes(df_cohortes_json, mesure, affichage):
+    tableau_cohortes = cohortes.tableau_cohortes_construct(df_cohortes_json, mesure, affichage)
     return tableau_cohortes.to_json(date_format = 'iso', orient = 'split')
 
 @app.callback(
     Output('tableau_evolution_cohortes', 'children'),
     [Input('stock_tableau_cohortes2', 'children')],
-    [State('dropdown_mesure','value')])
-def affich_tableau_cohortes(tableau_cohortes_json, mesure):
-    tableau = cohortes.tableau_cohortes_affich(tableau_cohortes_json, mesure)
+    [State('dropdown_mesure','value'),
+     State('radio_affichage', 'value')])
+def affich_tableau_cohortes(tableau_cohortes_json, mesure, affichage):
+    tableau = cohortes.tableau_cohortes_affich(tableau_cohortes_json, mesure, affichage)
     return util.generate_table(tableau)
 
 @app.callback(
     Output('graph_cohortes2', 'figure'),
-    [Input('stock_tableau_cohortes2', 'children')])
-def affich_graph_cohortes(tableau_cohortes_json):
-    return cohortes.graph_cohortes(tableau_cohortes_json, 'a')
+    [Input('stock_tableau_cohortes2', 'children')],
+    [State('dropdown_mesure','value'),
+     State('radio_affichage', 'value')])
+def affich_graph_cohortes(tableau_cohortes_json, mesure, affichage):
+    return cohortes.graph_cohortes(tableau_cohortes_json, mesure, affichage)
     
