@@ -85,27 +85,39 @@ class CohorteAnalysis:
         
         Ncol = len(tableau.columns)
         
-        # Formatage des valeurs
-        if affichage == 'valeur':
-            for col in tableau.columns[1:]:
-                if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
-                    tableau[col] = util.format_montant(tableau[col])
-                elif mesure in ['nb_com_cli']:
-                    tableau[col] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau[col], 1)]
-                else:
-                    tableau[col] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau[col]]
-        # Pourcentage
+        # Si on demande un affichage en pourcentage la première colonne reste en valeur
+        if affichage in ['pct_total', 'pct_relatif']:
+            tableau['1'] = self.formatage(tableau['1'], mesure, 'valeur')
+            debut = 2
         else:
-            # La colonne du premier mois n'est pas en pourcentage donc est formatéé comme précédemment
-            if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
-                tableau['1'] = util.format_montant(tableau['1'])
-            elif mesure in ['nb_com_cli']:
-                tableau['1'] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau['1'], 1)]
-            else:
-                tableau['1'] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau['1']]
-            # Les colonnes suivantes sont des pourcentages
-            for col in tableau.columns[2:]:
-                tableau[col] = util.format_pct(tableau[col])
+            debut = 1
+        
+        for col in tableau.columns[debut:]:
+            tableau[col] = self.formatage(tableau[col], mesure, affichage)
+        
+# =============================================================================
+#         # Formatage des valeurs
+#         if affichage == 'valeur':
+#             for col in tableau.columns[1:]:
+#                 if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
+#                     tableau[col] = util.format_montant(tableau[col])
+#                 elif mesure in ['nb_com_cli']:
+#                     tableau[col] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau[col], 1)]
+#                 else:
+#                     tableau[col] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau[col]]
+#         # Pourcentage
+#         else:
+#             # La colonne du premier mois n'est pas en pourcentage donc est formatéé comme précédemment
+#             if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
+#                 tableau['1'] = util.format_montant(tableau['1'])
+#             elif mesure in ['nb_com_cli']:
+#                 tableau['1'] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau['1'], 1)]
+#             else:
+#                 tableau['1'] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau['1']]
+#             # Les colonnes suivantes sont des pourcentages
+#             for col in tableau.columns[2:]:
+#                 tableau[col] = util.format_pct(tableau[col])
+# =============================================================================
         
         # Signaler les mois incomplets :
         for i in tableau.index:
@@ -131,10 +143,12 @@ class CohorteAnalysis:
                       'nb_com_cli' : 'Nombre de commandes par client',
                       'panier_moyen' : 'Panier moyen'}
     
-    def formatage(val, mesure, affichage):
+    def formatage(self, val, mesure, affichage):
         # Si on passe qu'une seule valeur on la met dans une liste pour la traiter comme quand on en passe plusieurs
         if not isinstance(val, (list, np.ndarray, pd.core.series.Series)):
             res = [val]
+        else:
+            res = val
         
         # Formatage des valeurs
         if affichage == 'valeur':
@@ -150,7 +164,7 @@ class CohorteAnalysis:
         
         # Opération inverse, si on a mis la valeur unique d'entrée dans une liste on l'en sort
         if not isinstance(val, (list, np.ndarray, pd.core.series.Series)):
-            res = [res][0]
+            res = res[0]
         return res
     
     def graph_cohortes(self, tableau_cohortes_json, mesure, affichage):
@@ -178,7 +192,7 @@ class CohorteAnalysis:
                               mode = 'lines+markers',
                               name = name,
                               hoverinfo = 'text',
-                              text = [f"""<b>{name}</b><br>{x} """ for x in y],
+                              text = [f"""<b>{name}</b><br>{self.formatage(x, mesure, affichage)} """ for x in y],
                               # Par défaut on affiche seulement les 3 premières cohortes pour garder le graph lisible
                               visible = "legendonly" if compteur > 3 else True)
             trace += [temp]

@@ -42,17 +42,7 @@ def generate_html():
                                {'label' : 'en pourcentage du 1er mois', 'value' : 'pct_total'},
                                {'label' : 'en pourcentage du mois précédent', 'value' : 'pct_relatif'}])
             ], className = 'three columns')
-        ], className = 'row'),
-        
-        html.Label('Mesure à afficher', style = {'margin' : '10px 0px 0px 0px'}),
-        html.Div([
-            dcc.Dropdown(id = 'dropdown_mesure2', clearable = False, options = [{'label' : 'Gross revenue', 'value' : 'gross_revenue'},
-                                                                               {'label' : 'Gross revenue par client', 'value' : 'gross_revenue_cli'},
-                                                                               {'label' : 'Nombre de clients', 'value' : 'nb_cli'},
-                                                                               {'label' : 'Nombre de commandes', 'value' : 'nb_com'},
-                                                                               {'label' : 'Nombre de commandes par client', 'value' : 'nb_com_cli'},
-                                                                               {'label' : 'Panier moyen', 'value' : 'panier_moyen'}], value = 'gross_revenue')
-        ], style = {'maxWidth':'300px'}),
+        ], className = 'row', style = {'margin' : '10px 0px 0px 0px'}),
         html.Div(id = 'tableau_evolution_cohortes'),
         dcc.Graph(id = 'graph_cohortes2'),
     
