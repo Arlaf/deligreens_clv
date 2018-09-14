@@ -95,30 +95,6 @@ class CohorteAnalysis:
         for col in tableau.columns[debut:]:
             tableau[col] = self.formatage(tableau[col], mesure, affichage)
         
-# =============================================================================
-#         # Formatage des valeurs
-#         if affichage == 'valeur':
-#             for col in tableau.columns[1:]:
-#                 if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
-#                     tableau[col] = util.format_montant(tableau[col])
-#                 elif mesure in ['nb_com_cli']:
-#                     tableau[col] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau[col], 1)]
-#                 else:
-#                     tableau[col] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau[col]]
-#         # Pourcentage
-#         else:
-#             # La colonne du premier mois n'est pas en pourcentage donc est formatéé comme précédemment
-#             if mesure in ['gross_revenue', 'panier_moyen', 'gross_revenue_cli']:
-#                 tableau['1'] = util.format_montant(tableau['1'])
-#             elif mesure in ['nb_com_cli']:
-#                 tableau['1'] = [str(x) if not math.isnan(x) else math.nan for x in round(tableau['1'], 1)]
-#             else:
-#                 tableau['1'] = [str(int(x)) if not math.isnan(x) else math.nan for x in tableau['1']]
-#             # Les colonnes suivantes sont des pourcentages
-#             for col in tableau.columns[2:]:
-#                 tableau[col] = util.format_pct(tableau[col])
-# =============================================================================
-        
         # Signaler les mois incomplets :
         for i in tableau.index:
             date_fin_cohorte = util.lastday_of_month(tableau['cohorte'][i])

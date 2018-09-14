@@ -22,7 +22,7 @@ def generate_html():
             start_date = datetime.date(util.ajd.year-1, util.ajd.month, 1),
             end_date = util.ajd
         ),
-        html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider', style = {'margin' : '0px 0px 0px 5px'}),
+        html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider', style = {'margin' : '0px 0px 0px 10px'}),
         html.Div([
             html.Div([
                 html.Label('Mesure à afficher'),
@@ -42,12 +42,13 @@ def generate_html():
                                {'label' : 'en pourcentage du 1er mois', 'value' : 'pct_total'},
                                {'label' : 'en pourcentage du mois précédent', 'value' : 'pct_relatif'}])
             ], className = 'three columns')
-        ], className = 'row', style = {'margin' : '10px 0px 0px 0px'}),
+        ], className = 'row', style = {'margin' : '10px 0px 10px 0px'}),
         html.Div(id = 'tableau_evolution_cohortes'),
+        html.Label('Les ~ ~ indiquent des valeurs qui sont encore susceptibles d\'augmenter', style = {'text-align' : 'right'}),
         dcc.Graph(id = 'graph_cohortes2'),
     
         # Divs invisibles qui stockeront les données intermédiaires
         html.Div(id = 'stock_commandes_filtered2', style = {'display': 'none'}),
         html.Div(id = 'stock_tableau_cohortes2', style = {'display': 'none'})
-    ])
+    ], style = {'margin' : '15px'})
     return layout

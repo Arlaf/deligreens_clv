@@ -28,7 +28,7 @@ def generate_html():
             start_date = datetime.date(2018, 4, 2),
             end_date = datetime.date(2018,7,1)
         ),
-        html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider'),
+        html.Button(id = 'button_valider', n_clicks = 0, children = 'Valider', style = {'margin-left' : '10px'}),
         dcc.Checklist(
             id = 'checkbox_cohorte',
             options = [{'label' : 'Distinguer les cohortes', 'value' : 'use_cohorts'}],
@@ -39,5 +39,5 @@ def generate_html():
         
         # Divs invisibles qui stockeront les données intermédiaires
         html.Div(id = 'stock_commandes_filtered', style = {'display': 'none'})
-    ])
+    ], style = {'margin' : '15px'})
     return layout
